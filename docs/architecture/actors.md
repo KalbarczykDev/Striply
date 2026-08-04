@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed — Phase 0 design. Actor responsibilities and trust boundaries must be reviewed before the system context diagram is accepted.
+Accepted — Phase 0 actor model and trust-boundary input.
 
 ## Merchant Organization Member
 
@@ -77,8 +77,8 @@ The exact permission matrix is intentionally deferred to the identity and author
 
 The payment simulator, Spring Boot modules, background workers, PostgreSQL, Redis, message brokers, monitoring components, AWS services, and Kubernetes resources are internal containers, components, or infrastructure. They may appear in later architecture diagrams but are not actors in the system context.
 
-## Open Decisions
+## Accepted Decisions
 
-1. Whether organization switching requires a new access token or uses a server-validated organization selector on each request.
-2. Whether API keys use fixed role-like scopes, granular permissions, or both.
-3. Which exceptional circumstances permit a Striply operator to access organization-specific data and what approval mechanism is required.
+1. Organization switching uses a server-validated organization selector on each request and does not require issuing a new access token.
+2. API keys combine fixed scopes with endpoint-level permission checks.
+3. Striply operators may access organization-specific data only through an audited support or incident procedure; routine access is forbidden.
