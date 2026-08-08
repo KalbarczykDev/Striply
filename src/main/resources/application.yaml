@@ -1,3 +1,17 @@
 spring:
   application:
     name: Striply
+
+  datasource:
+    url: ${STRIPLY_DB_URL:jdbc:postgresql://localhost:5432/striply}
+    username: ${STRIPLY_DB_USERNAME:app_user}
+    password: ${STRIPLY_DB_PASSWORD:app_password}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
