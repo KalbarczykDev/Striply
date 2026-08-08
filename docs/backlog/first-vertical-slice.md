@@ -148,7 +148,8 @@ Learn schema migration discipline, database-backed integration testing, and the 
 ### Non-Functional Requirements
 
 - A clean database can be created entirely from versioned migrations.
-- Credentials are not committed.
+- Production or shared-environment credentials are never committed.
+- Clearly identified local-only credentials may be committed for reproducible development.
 - Integration tests use Testcontainers rather than a developer's persistent database.
 
 ### Constraints
@@ -162,12 +163,12 @@ Learn schema migration discipline, database-backed integration testing, and the 
 - Documented commands start and stop local PostgreSQL.
 - Application startup applies pending migrations.
 - A clean Testcontainers database passes a migration and connectivity test.
-- Invalid or missing configuration fails with a useful diagnostic.
+- Invalid explicitly supplied database configuration fails with a useful diagnostic; missing environment variables use documented local defaults.
 
 ### Required Tests
 
 - Flyway migration integration test.
-- Repository connectivity smoke test using PostgreSQL Testcontainers.
+- PostgreSQL datasource connectivity smoke test using Testcontainers.
 
 ### Required Documentation
 

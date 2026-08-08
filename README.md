@@ -4,9 +4,11 @@ Striply is simulated payment infrastructure for developers, technical founders, 
 
 ## Project Status
 
-**Phase 0 — Foundation and design**
+**Phase 1 — Basic platform**
 
-Striply is currently in the architecture and requirements stage. Payment processing and user-facing workflows are not yet implemented.
+Phase 0 architecture and requirements are complete. 
+PostgreSQL persistence and database migrations are implemented; 
+authentication and organization functionality are next.
 
 ## Planned First Vertical Slice
 
@@ -44,6 +46,7 @@ Every new infrastructure component must solve an identified reliability, operati
 
 - [Product scope](docs/architecture/product-scope.md)
 - [Functional requirements](docs/architecture/requirements)
+- [Local PostgreSQL setup](docs/operations/local-database.md)
 
 ## Disclaimer
 
