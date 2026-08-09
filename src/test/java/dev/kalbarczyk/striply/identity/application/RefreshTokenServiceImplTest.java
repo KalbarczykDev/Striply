@@ -1,13 +1,13 @@
 package dev.kalbarczyk.striply.identity.application;
 
+import dev.kalbarczyk.striply.identity.infrastructure.persistence.AppUserRepository;
 import dev.kalbarczyk.striply.identity.domain.UserStatus;
 import dev.kalbarczyk.striply.identity.infrastructure.persistence.RefreshTokenEntity;
 import dev.kalbarczyk.striply.identity.infrastructure.persistence.RefreshTokenFamilyEntity;
 import dev.kalbarczyk.striply.identity.infrastructure.persistence.RefreshTokenFamilyRepository;
 import dev.kalbarczyk.striply.identity.infrastructure.persistence.RefreshTokenRepository;
 import dev.kalbarczyk.striply.identity.infrastructure.security.RefreshTokenHasher;
-import jakarta.transaction.Transactional;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +21,7 @@ import dev.kalbarczyk.striply.configuration.FixedClockConfiguration;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,7 +30,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Testcontainers
 @SpringBootTest
-@Transactional
 @Import(FixedClockConfiguration.class)
 class RefreshTokenServiceImplTest {
 
@@ -53,6 +53,16 @@ class RefreshTokenServiceImplTest {
     private JdbcTemplate jdbcTemplate;
     @Autowired
     private RefreshTokenService refreshTokenService;
+
+    @Autowired
+    private AppUserRepository appUserRepository;
+
+    @AfterEach
+    void cleanDatabase() {
+        tokenRepository.deleteAllInBatch();
+        familyRepository.deleteAllInBatch();
+        appUserRepository.deleteAllInBatch();
+    }
 
     @Test
     void shouldIssueRefreshTokenForUser() {
@@ -104,6 +114,69 @@ class RefreshTokenServiceImplTest {
 
         assertThat(familyRepository.findAll()).isEmpty();
         assertThat(tokenRepository.findAll()).isEmpty();
+    }
+
+    @Test
+    void shouldRotateValidRefreshToken() {
+        UUID userId = UUID.randomUUID();
+        insertUser(userId, UserStatus.ACTIVE);
+
+        IssuedRefreshToken initialToken =
+                refreshTokenService.issueFor(userId);
+
+        byte[] initialHash =
+                refreshTokenHasher.hash(initialToken.rawValue());
+
+        UUID familyId = tokenRepository
+                .findFamilyIdByTokenHash(initialHash)
+                .orElseThrow();
+
+        Instant familyExpiry = familyRepository
+                .findById(familyId)
+                .orElseThrow()
+                .getAbsoluteExpiresAt();
+
+        IssuedRefreshToken replacement =
+                refreshTokenService.rotate(initialToken.rawValue());
+
+        assertThat(familyRepository.findAll()).hasSize(1);
+        assertThat(tokenRepository.findAll()).hasSize(2);
+
+        RefreshTokenEntity consumedOriginal = tokenRepository
+                .findByTokenHash(initialHash)
+                .orElseThrow();
+
+        assertThat(consumedOriginal.getConsumedAt())
+                .isEqualTo(FixedClockConfiguration.NOW);
+
+        byte[] replacementHash =
+                refreshTokenHasher.hash(replacement.rawValue());
+
+        RefreshTokenEntity persistedReplacement = tokenRepository
+                .findByTokenHash(replacementHash)
+                .orElseThrow();
+
+        UUID replacementFamilyId = tokenRepository
+                .findFamilyIdByTokenHash(replacementHash)
+                .orElseThrow();
+
+        assertThat(replacementFamilyId).isEqualTo(familyId);
+        assertThat(persistedReplacement.getConsumedAt()).isNull();
+        assertThat(persistedReplacement.getCreatedAt())
+                .isEqualTo(FixedClockConfiguration.NOW);
+        assertThat(persistedReplacement.getExpiresAt())
+                .isEqualTo(FixedClockConfiguration.NOW.plus(Duration.ofDays(7)));
+
+        RefreshTokenFamilyEntity persistedFamily = familyRepository
+                .findById(familyId)
+                .orElseThrow();
+
+        assertThat(persistedFamily.getAbsoluteExpiresAt())
+                .isEqualTo(familyExpiry);
+        assertThat(persistedFamily.getRevokedAt()).isNull();
+
+        assertThat(replacement.expiresAt())
+                .isEqualTo(persistedReplacement.getExpiresAt());
     }
 
 

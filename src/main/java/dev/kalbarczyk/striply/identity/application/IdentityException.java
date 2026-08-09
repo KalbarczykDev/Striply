@@ -16,4 +16,10 @@ public class IdentityException extends RuntimeException {
             super("User is not eligible for Token");
         }
     }
+
+    public static class TokenNotEligibleForRotationException extends IdentityException {
+        public TokenNotEligibleForRotationException() {
+            super("Token is not eligible for Rotation");
+        }
+    }
 }

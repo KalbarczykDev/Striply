@@ -34,7 +34,7 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
         AppUserEntity user = appUserRepository.findById(userId)
                 .orElseThrow(IdentityException.UserNotFoundException::new);
 
-        if(user.getStatus() != UserStatus.ACTIVE){
+        if (user.getStatus() != UserStatus.ACTIVE) {
             throw new IdentityException.UserNotEligibleForTokenException();
         }
 
@@ -62,5 +62,67 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
         refreshTokenRepository.save(refreshToken);
 
         return new IssuedRefreshToken(rawToken, refreshToken.getExpiresAt());
+    }
+
+    @Override
+    @Transactional
+    public IssuedRefreshToken rotate(String rawToken) {
+
+        byte[] presentedTokenHash = refreshTokenHasher.hash(rawToken);
+
+        UUID familyId = refreshTokenRepository
+                .findFamilyIdByTokenHash(presentedTokenHash)
+                .orElseThrow(
+                        IdentityException.TokenNotEligibleForRotationException::new
+                );
+
+        RefreshTokenFamilyEntity family = refreshTokenFamilyRepository
+                .findLockedById(familyId)
+                .orElseThrow(
+                        IdentityException.TokenNotEligibleForRotationException::new
+                );
+
+        RefreshTokenEntity presentedToken = refreshTokenRepository
+                .findByTokenHash(presentedTokenHash)
+                .orElseThrow(
+                        IdentityException.TokenNotEligibleForRotationException::new
+                );
+
+        Instant now = clock.instant();
+
+        presentedToken.consume(now);
+
+        /*
+         * Force Hibernate to update consumed_at before inserting the replacement.
+         * Otherwise, PostgreSQL's partial unique index could see two unconsumed
+         * tokens in the same family.
+         */
+        refreshTokenRepository.flush();
+
+        String replacementRawToken = refreshTokenGenerator.generate();
+        byte[] replacementTokenHash =
+                refreshTokenHasher.hash(replacementRawToken);
+
+        Instant normalExpiry = now.plus(TOKEN_LIFETIME);
+        Instant replacementExpiry =
+                normalExpiry.isBefore(family.getAbsoluteExpiresAt())
+                        ? normalExpiry
+                        : family.getAbsoluteExpiresAt();
+
+        RefreshTokenEntity replacementToken =
+                RefreshTokenEntity.builder()
+                        .family(family)
+                        .tokenHash(replacementTokenHash)
+                        .createdAt(now)
+                        .expiresAt(replacementExpiry)
+                        .build();
+
+        refreshTokenRepository.save(replacementToken);
+
+
+        return new IssuedRefreshToken(
+                replacementRawToken,
+                replacementExpiry
+        );
     }
 }
