@@ -14,14 +14,13 @@ import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.sli
         importOptions = ImportOption.DoNotIncludeTests.class
 )
 class ModuleArchitectureTest {
-    // Module packages do not contain production classes yet.
-    // TODO: Remove allowEmptyShould(true) when the first module implementation is added.
+
     @ArchTest
     static final ArchRule modules_should_be_free_of_cycles = slices()
             .matching("dev.kalbarczyk.striply.(*)..")
             .should()
-            .beFreeOfCycles()
-            .allowEmptyShould(true);
+            .beFreeOfCycles();
+
 
     @ArchTest
     static final ArchRule domain_should_not_depend_on_frameworks = noClasses()
@@ -32,8 +31,7 @@ class ModuleArchitectureTest {
             .resideInAnyPackage(
                     "org.springframework..",
                     "jakarta.persistence.."
-            )
-            .allowEmptyShould(true);
+            );
 
     @ArchTest
     static final ArchRule catalog_internals_should_not_be_accessed_by_other_modules =
