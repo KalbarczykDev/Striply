@@ -20,4 +20,6 @@ public interface RefreshTokenRepository
     )
     Optional<UUID> findFamilyIdByTokenHash(
             @Param("tokenHash") byte[] tokenHash);
+
+    Optional<RefreshTokenEntity> findByTokenHash(byte[] tokenHash);
 }
