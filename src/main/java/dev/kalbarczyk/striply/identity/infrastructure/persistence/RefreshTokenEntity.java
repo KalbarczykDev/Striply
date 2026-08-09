@@ -80,4 +80,50 @@ public class RefreshTokenEntity {
         this.tokenHash = Arrays.copyOf(tokenHash, tokenHash.length);
     }
 
+
+    /**
+     * Consumes token
+     *
+     * @param consumedAt Instant the token was consumed at.
+     */
+    public void consume(Instant consumedAt) {
+        if (consumedAt == null) {
+            throw new IllegalArgumentException(
+                    "consumedAt must not be null"
+            );
+        }
+
+        if (consumedAt.isBefore(createdAt)) {
+            throw new IllegalArgumentException(
+                    "consumedAt must not be before createdAt"
+            );
+        }
+
+        if (this.consumedAt != null) {
+            throw new IllegalStateException(
+                    "Refresh token has already been consumed"
+            );
+        }
+
+        if (family.getRevokedAt() != null) {
+            throw new IllegalStateException(
+                    "Refresh token family has been revoked"
+            );
+        }
+
+        if (!consumedAt.isBefore(expiresAt)) {
+            throw new IllegalStateException(
+                    "Refresh token has expired"
+            );
+        }
+
+        if (!consumedAt.isBefore(family.getAbsoluteExpiresAt())) {
+            throw new IllegalStateException(
+                    "Refresh token family has expired"
+            );
+        }
+
+        this.consumedAt = consumedAt;
+    }
+
 }
