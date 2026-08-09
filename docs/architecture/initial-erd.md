@@ -2,16 +2,16 @@
 
 ## Status
 
-Accepted — Phase 0 logical data model. This is design input, not an implemented database schema.
+Accepted — Phase 1 evolving logical data model. This is design input; only entities backed by committed migrations are implemented.
 
-- **Architecture version:** Phase 0, version 0.1
-- **Date:** 2026-08-05
+- **Architecture version:** Phase 1, version 0.2
+- **Date:** 2026-08-08
 - **Diagram source:** [`../diagrams/initial-erd.mmd`](../diagrams/initial-erd.mmd)
 
 ## Title and Scope
 
 **Title:** Striply Initial Entity-Relationship Diagram  
-**Scope:** Identity, tenant ownership, catalog, checkout, simulated payments, refunds, webhooks, audit, idempotency, and transactional outbox concepts required by the planned first vertical slice and reliability phase.
+**Scope:** Identity and refresh-token lifecycle, tenant ownership, catalog, checkout, simulated payments, refunds, webhooks, audit, idempotency, and transactional outbox concepts required by the planned first vertical slice and reliability phase.
 
 The model is intentionally logical. Exact PostgreSQL types, column lengths, checks, generated values, and migration ordering must be finalized immediately before each module is implemented.
 
@@ -78,6 +78,23 @@ This prevents a valid product identifier from one organization being combined wi
 - Email comparison is case-insensitive and unique after normalization.
 - Password hashes are never returned or logged.
 - Organization access is granted only through active membership.
+
+#### `refresh_token_family`
+
+- Represents one login session on one browser or device; it is not exposed through the API.
+- Belongs to exactly one user and retains its original `absolute_expires_at` through every rotation.
+- `revoked_at` invalidates every token in the family after logout, replay detection, or another security action.
+- `revocation_reason` stores a bounded internal reason code such as `LOGOUT`, `TOKEN_REUSE`, or `SECURITY_ACTION`; it must not contain credentials or raw request data.
+- Revoking one compromised family does not revoke the user's other login sessions. A separate future "log out everywhere" operation may revoke all families for the user.
+
+#### `refresh_token`
+
+- Represents one refresh-token generation within a family and is never exposed as a database identifier.
+- Stores only a deterministic cryptographic hash of a high-entropy random token. The raw token exists only in the `HttpOnly` cookie returned to the client.
+- `expires_at` is no later than seven days after creation and must never exceed the family's 30-day absolute expiry.
+- `consumed_at` is set exactly once when rotation succeeds. A consumed token can never issue another token.
+- Reuse of a consumed token revokes the complete family and requires a new login.
+- Rotation must atomically consume the presented token and create exactly one replacement in the same family.
 
 #### `organization`
 
@@ -201,6 +218,9 @@ The implementation must include, at minimum:
 | Table | Constraint | Purpose |
 | --- | --- | --- |
 | `app_user` | Unique normalized email | Prevent duplicate login identities |
+| `refresh_token_family` | `absolute_expires_at > created_at` | Prevent invalid login-session lifetime |
+| `refresh_token` | Unique `token_hash`; `expires_at > created_at` | Support safe token lookup and prevent invalid token lifetime |
+| `refresh_token` | Partial unique active token per `family_id` | Prevent multiple unconsumed descendants in one token family |
 | `organization` | Unique `public_id` | Stable external organization identity |
 | `organization_member` | Unique `(organization_id, user_id)` | One membership per user and organization |
 | `api_key` | Unique `public_id`; unique secret fingerprint where used | Identify and safely reject duplicate credentials |
@@ -222,6 +242,9 @@ The cumulative refund limit cannot be enforced by a simple row check because it 
 Indexes must be justified by an API query, constraint, or worker access path. Initial candidates are:
 
 - unique indexes for all public identifiers;
+- `refresh_token_family (user_id, revoked_at)` for active-session lookup and user-wide revocation;
+- unique `refresh_token (token_hash)` for presented-token lookup;
+- `refresh_token (family_id, created_at DESC)` for rotation history and security investigation;
 - `organization_member (user_id, status)` for organization selection;
 - `product (organization_id, status, created_at DESC)`;
 - `price (organization_id, product_id, status)`;
@@ -254,6 +277,10 @@ Version columns support optimistic conflict detection but do not replace uniquen
 
 ## Transaction Boundaries Implied by the Model
 
+- Login and successful registration create one refresh-token family and its first token in the same transaction.
+- Refresh rotation atomically verifies the family lifetime and revocation state, consumes the presented token, and inserts one replacement token. Concurrent use of the same token permits at most one successful rotation.
+- Presentation of a consumed refresh token revokes its family in a transaction. The public response does not reveal whether replay detection occurred.
+- Logout idempotently revokes the identifiable family; failure to find an active family does not reveal token state.
 - Checkout-session creation persists the session and any associated initial audit or event record atomically when those capabilities exist.
 - Successful confirmation transitions the intent, creates the payment, completes the checkout session, and records the associated event in one transaction.
 - Refund creation validates and reserves the requested balance, creates the refund, and records its event in one transaction. Resolution moves or releases the reservation atomically.
@@ -265,6 +292,7 @@ Version columns support optimistic conflict detection but do not replace uniquen
 
 - Database roles must prevent browser or merchant-application access to tables.
 - Passwords and API-key secrets are one-way hashed; recoverable webhook signing secrets are encrypted.
+- Raw refresh tokens are never persisted or logged. Only cryptographic token hashes are stored, and database identifiers for token rows are never exposed.
 - Customer email is personal data and must be scoped, minimized in logs, and retained according to the accepted policy.
 - Public identifiers reduce enumeration risk but do not provide authorization.
 - Audit and webhook metadata must be size-bounded and scrubbed of secrets.
@@ -280,7 +308,7 @@ Version columns support optimistic conflict detection but do not replace uniquen
 
 ## Known Limitations
 
-- Refresh-token rotation, organization invitations, password-reset tokens, and email verification need separate identity modeling before implementation.
+- Organization invitations, password-reset tokens, and email verification need separate identity modeling before implementation.
 - Event-type subscriptions use JSON in this initial model and may later require normalization.
 - Mermaid ER syntax does not show partial indexes, checks, composite foreign keys, or PostgreSQL exclusion rules fully.
 - Exact status storage—PostgreSQL enum, check-constrained text, or lookup table—remains undecided.

@@ -2,11 +2,30 @@ erDiagram
     APP_USER {
         uuid id PK
         varchar public_id UK
+        varchar email
         varchar normalized_email UK
         varchar password_hash
         varchar status
         timestamptz created_at
         timestamptz updated_at
+    }
+
+    REFRESH_TOKEN_FAMILY {
+        uuid id PK
+        uuid user_id FK
+        timestamptz created_at
+        timestamptz absolute_expires_at
+        timestamptz revoked_at_nullable
+        varchar revocation_reason_nullable
+    }
+
+    REFRESH_TOKEN {
+        uuid id PK
+        uuid family_id FK
+        bytea token_hash UK
+        timestamptz created_at
+        timestamptz expires_at
+        timestamptz consumed_at_nullable
     }
 
     ORGANIZATION {
@@ -240,6 +259,8 @@ erDiagram
     }
 
     APP_USER ||--o{ ORGANIZATION_MEMBER : "has memberships"
+    APP_USER ||--o{ REFRESH_TOKEN_FAMILY : "owns login sessions"
+    REFRESH_TOKEN_FAMILY ||--|{ REFRESH_TOKEN : "rotates tokens"
     ORGANIZATION ||--o{ ORGANIZATION_MEMBER : "contains"
     APP_USER ||--o{ API_KEY : "creates"
     ORGANIZATION ||--o{ API_KEY : "owns"

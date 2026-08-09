@@ -1,0 +1,85 @@
+sequenceDiagram
+    title Striply Login and Refresh-Token Lifecycle — Phase 1 v0.1
+
+    actor User
+    participant Browser as React browser client
+    participant API as Spring Boot API
+    participant Auth as Identity application service
+    participant Password as Password hasher
+    participant Tokens as Token service
+    participant DB as PostgreSQL
+
+    Note over User,DB: Scope: synchronous HTTPS login and refresh flows. Database writes shown inside transaction boundaries.
+
+    rect rgb(235, 245, 255)
+        Note over User,DB: Login
+        User->>Browser: Submit email and password
+        Browser->>API: POST /api/v1/auth/login (HTTPS, JSON)
+        API->>Auth: Authenticate normalized email and password
+        Auth->>DB: Load user by normalized email
+        Auth->>Password: Verify against stored hash or fixed dummy hash
+        Password-->>Auth: Verification result
+
+        alt User exists and credentials are valid
+            Auth->>Tokens: Generate 5-minute access token and random refresh token
+            Auth->>DB: BEGIN transaction
+            Auth->>DB: Insert token family with 30-day absolute expiry
+            Auth->>DB: Insert hash of first refresh token with 7-day expiry
+            Auth->>DB: COMMIT transaction
+            Auth-->>API: Authentication result
+            API-->>Browser: 200 + access token Set-Cookie refresh token
+        else Unknown email, wrong password, or disabled user
+            Auth-->>API: Generic authentication failure
+            API-->>Browser: 401 INVALID_CREDENTIALS
+        end
+    end
+
+    rect rgb(238, 250, 238)
+        Note over User,DB: Successful refresh rotation
+        Browser->>API: POST /api/v1/auth/refresh (HTTPS + HttpOnly cookie)
+        API->>API: Validate request origin / CSRF protection
+        API->>Auth: Refresh using presented secret
+        Auth->>Tokens: Hash presented refresh token
+        Auth->>DB: BEGIN transaction
+        Auth->>DB: Lock and load token family by token hash
+
+        alt Token is unconsumed and token/family lifetimes are valid
+            Auth->>DB: Atomically set consumed_at on current token
+            Auth->>Tokens: Generate replacement refresh token and access token
+            Auth->>DB: Insert replacement hash in same family
+            Auth->>DB: COMMIT transaction
+            Auth-->>API: Rotated authentication result
+            API-->>Browser: 200 + access token replace refresh cookie
+        else Token or family is expired, revoked, malformed, or unknown
+            Auth->>DB: ROLLBACK or finish without mutation
+            Auth-->>API: Generic refresh failure
+            API-->>Browser: 401 INVALID_REFRESH_TOKEN clear cookie
+        else Token was already consumed
+            Auth->>DB: Revoke affected token family with TOKEN_REUSE reason
+            Auth->>DB: Record security event without token data
+            Auth->>DB: COMMIT transaction
+            Auth-->>API: Generic refresh failure
+            API-->>Browser: 401 INVALID_REFRESH_TOKEN clear cookie
+        end
+    end
+
+    rect rgb(255, 242, 235)
+        Note over Browser,DB: Concurrent use of the same refresh token
+        par Request A
+            Browser->>API: Refresh with token A1
+            API->>Auth: Rotate A1
+            Auth->>DB: Atomically consume A1 and insert A2
+            DB-->>Auth: Rotation succeeds
+            Auth-->>API: Access token + raw A2
+            API-->>Browser: 200 replace cookie with A2
+        and Request B
+            Browser->>API: Refresh with the same token A1
+            API->>Auth: Rotate A1
+            Auth->>DB: Attempt to consume A1 after serialization/lock wait
+            DB-->>Auth: A1 is already consumed
+            Auth->>DB: Revoke Family A as suspected replay
+            Auth-->>API: Generic refresh failure
+            API-->>Browser: 401 INVALID_REFRESH_TOKEN clear cookie
+        end
+        Note over Browser,DB: Strict policy: Family A is revoked, so A2 is unusable and the user must log in again.
+    end
