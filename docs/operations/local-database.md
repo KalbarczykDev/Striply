@@ -1,6 +1,6 @@
 # Local PostgreSQL Setup
 
-This document explains how to run the PostgreSQL database used by Striply during local development and how to verify the database migrations with Testcontainers.
+This document explains how to run the PostgreSQL database used by Striply during local development and how Flyway migrations are applied during application startup.
 
 ## Prerequisites
 
@@ -38,11 +38,11 @@ The database data is stored in the `striply_postgres_data` Docker volume and rem
 
 Spring Boot reads the database connection from these environment variables:
 
-| Environment variable | Local default | Purpose |
-| --- | --- | --- |
-| `STRIPLY_DB_URL` | `jdbc:postgresql://localhost:5432/striply` | JDBC connection URL |
-| `STRIPLY_DB_USERNAME` | `app_user` | Database username |
-| `STRIPLY_DB_PASSWORD` | `app_password` | Database password |
+| Environment variable  | Local default                              | Purpose             |
+|-----------------------|--------------------------------------------|---------------------|
+| `STRIPLY_DB_URL`      | `jdbc:postgresql://localhost:5432/striply` | JDBC connection URL |
+| `STRIPLY_DB_USERNAME` | `app_user`                                 | Database username   |
+| `STRIPLY_DB_PASSWORD` | `app_password`                             | Database password   |
 
 The defaults match the PostgreSQL service in `compose.yaml`, so no environment variables are required for the standard local setup. To override them for the current terminal session:
 
@@ -54,24 +54,24 @@ export STRIPLY_DB_PASSWORD=app_password
 
 These credentials are local-development defaults, not production secrets. They must not be reused in shared, staging, or production environments. Non-local credentials must be supplied through environment variables or an appropriate secret-management system.
 
-## Run Integration Tests
+## Verify Application Startup and Migrations
 
-Run the complete test suite:
+Start the application:
 
 ```bash
-./gradlew test
+./gradlew bootRun
 ```
 
-The database integration tests use Testcontainers. They start an isolated PostgreSQL container automatically and do not use or modify the persistent local development database. Docker must still be running.
+Application startup succeeds only if the datasource connection works, Flyway applies all pending migrations, and Hibernate validates the mapped schema.
 
 ## Migration Rules
 
 - Add migrations under `src/main/resources/db/migration`.
-- Use Flyway versioned names such as `V2__add_organization.sql`.
+- Use Flyway versioned names such as `V{number}__{descriptive_name}.sql`.
 - Never modify a migration after it has been shared or merged.
 - Create a new migration for every subsequent schema change.
 - Keep each migration focused on the schema required by the current ticket.
-- Verify migrations against PostgreSQL through Testcontainers; do not substitute H2.
+- Verify migrations against PostgreSQL. Feature-specific persistence tests use PostgreSQL Testcontainers when database behavior must be tested; do not substitute H2.
 - Do not rely on Hibernate to create or update the schema. Hibernate validates the schema managed by Flyway.
 
 ## Troubleshooting
@@ -92,9 +92,6 @@ Verify that `STRIPLY_DB_URL`, `STRIPLY_DB_USERNAME`, and `STRIPLY_DB_PASSWORD` a
 
 Ensure the project includes the PostgreSQL-specific Flyway runtime dependency, `flyway-database-postgresql`, and refresh the Gradle dependencies in the IDE.
 
-### Testcontainers cannot start PostgreSQL
-
-Confirm Docker is running and that the current user can communicate with it. The persistent Compose database does not need to be running because Testcontainers creates a separate temporary database.
 
 ### Migration validation fails
 

@@ -150,7 +150,6 @@ Learn schema migration discipline, database-backed integration testing, and the 
 - A clean database can be created entirely from versioned migrations.
 - Production or shared-environment credentials are never committed.
 - Clearly identified local-only credentials may be committed for reproducible development.
-- Integration tests use Testcontainers rather than a developer's persistent database.
 
 ### Constraints
 
@@ -161,14 +160,13 @@ Learn schema migration discipline, database-backed integration testing, and the 
 ### Acceptance Criteria
 
 - Documented commands start and stop local PostgreSQL.
-- Application startup applies pending migrations.
-- A clean Testcontainers database passes a migration and connectivity test.
+- Starting the application against a clean local PostgreSQL database applies all pending Flyway migrations successfully.
 - Invalid explicitly supplied database configuration fails with a useful diagnostic; missing environment variables use documented local defaults.
 
 ### Required Tests
 
-- Flyway migration integration test.
-- PostgreSQL datasource connectivity smoke test using Testcontainers.
+- No standalone migration or datasource smoke test is required.
+- Database constraints introduced by later feature tickets must be verified through feature-specific PostgreSQL integration tests.
 
 ### Required Documentation
 
@@ -180,8 +178,7 @@ Learn schema migration discipline, database-backed integration testing, and the 
 
 ### Definition of Done
 
-A new contributor can create the database and run integration tests using documented commands without machine-specific configuration.
-
+- A new contributor can create the local database, start the application, and apply all Flyway migrations using documented commands without machine-specific configuration.
 ---
 
 ## VS-003 — Implement User Authentication and Token Lifecycle
