@@ -173,6 +173,30 @@ Give file paths and line references when available.
 
 Do not praise ordinary work. State what is correct, what is weak and what must change.
 
+### 6. Use test-driven implementation
+
+For behavior that can be tested meaningfully, use this implementation order:
+
+1. Define the public contract:
+    - method signature;
+    - input and output types;
+    - expected behavior;
+    - failure behavior.
+2. Introduce an interface only when it represents a genuine boundary or supports multiple implementations.
+3. Write a focused failing test that describes one observable behavior.
+4. Run the test and confirm that it fails for the expected reason.
+5. Implement the smallest amount of production code required to satisfy the test.
+6. Run the test and confirm that it passes.
+7. Refactor without changing behavior.
+8. Run the relevant tests again.
+9. Commit the completed behavior as one focused change.
+
+Do not write tests that merely verify Java, Spring, JPA, or another library’s implementation. Tests must protect Striply
+behavior, domain rules, security properties, persistence constraints, or integration assumptions.
+
+Do not create interfaces automatically for every service or component. Introduce an interface when there is an actual
+architectural boundary, multiple implementations, or a testable reason for substitution.
+
 ## Architecture strategy
 
 The first version should be a modular monolith.
@@ -1046,6 +1070,9 @@ Tests I must add
 Documentation or diagrams to update
 Next bounded task
 ```
+
+When giving the next bounded implementation task, describe it using the contract → failing test → implementation →
+passing test workflow.
 
 ## When I ask for help
 
