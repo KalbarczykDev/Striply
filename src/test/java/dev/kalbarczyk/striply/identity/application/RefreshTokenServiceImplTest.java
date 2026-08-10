@@ -267,11 +267,11 @@ class RefreshTokenServiceImplTest {
         refreshTokenService.rotate(first.rawValue());
 
         assertThatThrownBy(() -> refreshTokenService.rotate(first.rawValue()))
-        .isInstanceOfSatisfying(
-                InvalidRefreshTokenException.class,
-                exception -> assertThat(exception.getReason())
-                        .isEqualTo(RefreshTokenFailureReason.ALREADY_CONSUMED)
-        );
+                .isInstanceOfSatisfying(
+                        InvalidRefreshTokenException.class,
+                        exception -> assertThat(exception.getReason())
+                                .isEqualTo(RefreshTokenFailureReason.ALREADY_CONSUMED)
+                );
 
         byte[] initialHash =
                 refreshTokenHasher.hash(first.rawValue());
@@ -285,9 +285,43 @@ class RefreshTokenServiceImplTest {
                 .orElseThrow();
 
 
-
         assertThat(reloadedFamily.getRevocationReason()).isEqualTo(TOKEN_REUSE);
         assertThat(reloadedFamily.getRevokedAt()).isEqualTo(NOW);
+        assertThat(refreshTokenRepository.findAll()).hasSize(2);
+
+    }
+
+    @Test
+    void shouldTreatExpiredConsumedTokenAsReplay() {
+        UUID userId = insertUser(UserStatus.ACTIVE);
+
+        IssuedRefreshToken original = refreshTokenService.issueFor(userId);
+        refreshTokenService.rotate(original.rawValue());
+
+        testClock.setInstant(
+                NOW.plus(Duration.ofDays(7))
+        );
+
+        assertThatThrownBy(() -> refreshTokenService.rotate(original.rawValue()))
+                .isInstanceOfSatisfying(
+                        InvalidRefreshTokenException.class,
+                        exception -> assertThat(exception.getReason())
+                                .isEqualTo(RefreshTokenFailureReason.ALREADY_CONSUMED)
+                );
+
+        byte[] originalHash = refreshTokenHasher.hash(original.rawValue());
+
+        UUID familyId = refreshTokenRepository
+                .findFamilyIdByTokenHash(originalHash)
+                .orElseThrow();
+
+        RefreshTokenFamilyEntity family = refreshTokenFamilyRepository
+                .findById(familyId)
+                .orElseThrow();
+
+        assertThat(family.getRevocationReason()).isEqualTo(TOKEN_REUSE);
+        assertThat(family.getRevokedAt())
+                .isEqualTo(NOW.plus(Duration.ofDays(7)));
         assertThat(refreshTokenRepository.findAll()).hasSize(2);
 
     }

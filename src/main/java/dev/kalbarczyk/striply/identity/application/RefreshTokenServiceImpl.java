@@ -97,16 +97,16 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
 
         Instant now = clock.instant();
 
-        if (!now.isBefore(presentedToken.getExpiresAt())) {
-            throw new InvalidRefreshTokenException(
-                    RefreshTokenFailureReason.EXPIRED
-            );
-        }
-
         if (presentedToken.getConsumedAt() != null) {
             family.revoke(RefreshTokenRevocationReason.TOKEN_REUSE, now);
             throw new InvalidRefreshTokenException(
                     RefreshTokenFailureReason.ALREADY_CONSUMED
+            );
+        }
+
+        if (!now.isBefore(presentedToken.getExpiresAt())) {
+            throw new InvalidRefreshTokenException(
+                    RefreshTokenFailureReason.EXPIRED
             );
         }
 
