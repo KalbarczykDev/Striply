@@ -28,13 +28,27 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.when;
 
 @Testcontainers
 @SpringBootTest
 @Import(FixedClockConfiguration.class)
 class RefreshTokenServiceImplTest {
 
+    private static final UUID USER_ID =
+            UUID.fromString("10000000-0000-0000-0000-000000000001");
+
+    private static final String USER_PUBLIC_ID =
+            "usr_test_user_000000000001";
+
+    private static final String USER_EMAIL =
+            "developer@example.com";
+
+    private static final String TEST_PASSWORD_HASH =
+            "{argon2}test-password-hash";
+
+    // 43 Base64URL characters—the shape produced from 32 random bytes.
+    private static final String UNKNOWN_RAW_TOKEN =
+            "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
     @Container
     @ServiceConnection
@@ -76,8 +90,7 @@ class RefreshTokenServiceImplTest {
 
     @Test
     void shouldIssueRefreshTokenForUser() {
-        UUID userId = UUID.randomUUID();
-        insertUser(userId, UserStatus.ACTIVE);
+        UUID userId = insertUser(UserStatus.ACTIVE);
 
         IssuedRefreshToken issuedRefreshToken = refreshTokenService.issueFor(userId);
         List<RefreshTokenFamilyEntity> families = familyRepository.findAll();
@@ -115,11 +128,10 @@ class RefreshTokenServiceImplTest {
 
     @Test
     void shouldNotIssueRefreshTokenForDisabledUser() {
-        UUID userId = UUID.randomUUID();
-        insertUser(userId, UserStatus.DISABLED);
+        UUID userId = insertUser(UserStatus.DISABLED);
         assertThatThrownBy(() -> refreshTokenService.issueFor(userId))
                 .isInstanceOf(
-                        IdentityException.UserNotEligibleForTokenException.class
+                        UserNotEligibleForTokenException.class
                 );
 
         assertThat(familyRepository.findAll()).isEmpty();
@@ -128,8 +140,7 @@ class RefreshTokenServiceImplTest {
 
     @Test
     void shouldRotateValidRefreshToken() {
-        UUID userId = UUID.randomUUID();
-        insertUser(userId, UserStatus.ACTIVE);
+        UUID userId = insertUser(UserStatus.ACTIVE);
 
         IssuedRefreshToken initialToken =
                 refreshTokenService.issueFor(userId);
@@ -191,10 +202,7 @@ class RefreshTokenServiceImplTest {
 
     @Test
     void shouldNotRotateExpiredRefreshToken() {
-
-        UUID userId = UUID.randomUUID();
-        insertUser(userId, UserStatus.ACTIVE);
-
+        UUID userId = insertUser(UserStatus.ACTIVE);
 
         IssuedRefreshToken initialToken =
                 refreshTokenService.issueFor(userId);
@@ -210,8 +218,10 @@ class RefreshTokenServiceImplTest {
 
         assertThatThrownBy(
                 () -> refreshTokenService.rotate(initialToken.rawValue())
-        ).isInstanceOf(
-                IdentityException.TokenNotEligibleForRotationException.class
+        ).isInstanceOfSatisfying(
+                InvalidRefreshTokenException.class,
+                exception -> assertThat(exception.getReason())
+                        .isEqualTo(RefreshTokenFailureReason.EXPIRED)
         );
 
         List<RefreshTokenEntity> tokens = tokenRepository.findAll();
@@ -233,8 +243,22 @@ class RefreshTokenServiceImplTest {
 
     }
 
+    @Test
+    void shouldRejectUnknownRefreshToken() {
+        assertThatThrownBy(
+                () -> refreshTokenService.rotate(UNKNOWN_RAW_TOKEN)
+        ).isInstanceOfSatisfying(
+                InvalidRefreshTokenException.class,
+                exception -> assertThat(exception.getReason())
+                        .isEqualTo(RefreshTokenFailureReason.UNKNOWN)
+        );
 
-    private void insertUser(UUID userId, UserStatus status) {
+        assertThat(tokenRepository.findAll()).isEmpty();
+        assertThat(familyRepository.findAll()).isEmpty();
+    }
+
+
+    private UUID insertUser(UserStatus status) {
         jdbcTemplate.update(
                 """
                         INSERT INTO app_user (
@@ -247,13 +271,14 @@ class RefreshTokenServiceImplTest {
                         )
                         VALUES (?, ?, ?, ?, ?, ?)
                         """,
-                userId,
-                "usr_" + UUID.randomUUID(),
-                "developer@example.com",
-                "developer@example.com",
-                "{argon2}test-password-hash",
+                USER_ID,
+                USER_PUBLIC_ID,
+                USER_EMAIL,
+                USER_EMAIL,
+                TEST_PASSWORD_HASH,
                 status.name()
         );
+        return USER_ID;
     }
 
 

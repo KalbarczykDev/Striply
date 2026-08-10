@@ -32,10 +32,10 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
     @Transactional
     public IssuedRefreshToken issueFor(UUID userId) {
         AppUserEntity user = appUserRepository.findById(userId)
-                .orElseThrow(IdentityException.UserNotFoundException::new);
+                .orElseThrow(UserNotFoundException::new);
 
         if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new IdentityException.UserNotEligibleForTokenException();
+            throw new UserNotEligibleForTokenException();
         }
 
         Instant now = clock.instant();
@@ -73,25 +73,33 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
         UUID familyId = refreshTokenRepository
                 .findFamilyIdByTokenHash(presentedTokenHash)
                 .orElseThrow(
-                        IdentityException.TokenNotEligibleForRotationException::new
+                        () -> new InvalidRefreshTokenException(
+                                RefreshTokenFailureReason.UNKNOWN
+                        )
                 );
 
         RefreshTokenFamilyEntity family = refreshTokenFamilyRepository
                 .findLockedById(familyId)
                 .orElseThrow(
-                        IdentityException.TokenNotEligibleForRotationException::new
+                        () -> new InvalidRefreshTokenException(
+                                RefreshTokenFailureReason.UNKNOWN
+                        )
                 );
 
         RefreshTokenEntity presentedToken = refreshTokenRepository
                 .findByTokenHash(presentedTokenHash)
                 .orElseThrow(
-                        IdentityException.TokenNotEligibleForRotationException::new
+                        () -> new InvalidRefreshTokenException(
+                                RefreshTokenFailureReason.UNKNOWN
+                        )
                 );
 
         Instant now = clock.instant();
 
         if (!now.isBefore(presentedToken.getExpiresAt())) {
-            throw new IdentityException.TokenNotEligibleForRotationException();
+            throw new InvalidRefreshTokenException(
+                    RefreshTokenFailureReason.EXPIRED
+            );
         }
 
 
