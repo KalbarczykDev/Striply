@@ -1,10 +1,11 @@
 package dev.kalbarczyk.striply.identity.application;
 
+import dev.kalbarczyk.striply.identity.domain.RefreshTokenRevocationReason;
 import dev.kalbarczyk.striply.identity.domain.UserStatus;
 import dev.kalbarczyk.striply.identity.infrastructure.persistence.*;
 import dev.kalbarczyk.striply.identity.infrastructure.security.RefreshTokenGenerator;
 import dev.kalbarczyk.striply.identity.infrastructure.security.RefreshTokenHasher;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -65,7 +66,7 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
     }
 
     @Override
-    @Transactional
+    @Transactional(noRollbackFor = InvalidRefreshTokenException.class)
     public IssuedRefreshToken rotate(String rawToken) {
 
         byte[] presentedTokenHash = refreshTokenHasher.hash(rawToken);
@@ -99,6 +100,13 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
         if (!now.isBefore(presentedToken.getExpiresAt())) {
             throw new InvalidRefreshTokenException(
                     RefreshTokenFailureReason.EXPIRED
+            );
+        }
+
+        if (presentedToken.getConsumedAt() != null) {
+            family.revoke(RefreshTokenRevocationReason.TOKEN_REUSE, now);
+            throw new InvalidRefreshTokenException(
+                    RefreshTokenFailureReason.ALREADY_CONSUMED
             );
         }
 

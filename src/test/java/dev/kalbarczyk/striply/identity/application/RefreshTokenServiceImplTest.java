@@ -26,6 +26,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import static dev.kalbarczyk.striply.configuration.FixedClockConfiguration.NOW;
+import static dev.kalbarczyk.striply.identity.domain.RefreshTokenRevocationReason.TOKEN_REUSE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -57,10 +59,10 @@ class RefreshTokenServiceImplTest {
 
 
     @Autowired
-    private RefreshTokenFamilyRepository familyRepository;
+    private RefreshTokenFamilyRepository refreshTokenFamilyRepository;
 
     @Autowired
-    private RefreshTokenRepository tokenRepository;
+    private RefreshTokenRepository refreshTokenRepository;
 
     @Autowired
     private RefreshTokenHasher refreshTokenHasher;
@@ -78,13 +80,13 @@ class RefreshTokenServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        testClock.setInstant(FixedClockConfiguration.NOW);
+        testClock.setInstant(NOW);
     }
 
     @AfterEach
     void cleanDatabase() {
-        tokenRepository.deleteAllInBatch();
-        familyRepository.deleteAllInBatch();
+        refreshTokenRepository.deleteAllInBatch();
+        refreshTokenFamilyRepository.deleteAllInBatch();
         appUserRepository.deleteAllInBatch();
     }
 
@@ -93,31 +95,31 @@ class RefreshTokenServiceImplTest {
         UUID userId = insertUser(UserStatus.ACTIVE);
 
         IssuedRefreshToken issuedRefreshToken = refreshTokenService.issueFor(userId);
-        List<RefreshTokenFamilyEntity> families = familyRepository.findAll();
+        List<RefreshTokenFamilyEntity> families = refreshTokenFamilyRepository.findAll();
 
         assertThat(families).hasSize(1);
 
         RefreshTokenFamilyEntity family = families.getFirst();
 
         assertThat(family.getUser().getId()).isEqualTo(userId);
-        assertThat(family.getCreatedAt()).isEqualTo(FixedClockConfiguration.NOW);
+        assertThat(family.getCreatedAt()).isEqualTo(NOW);
         assertThat(family.getAbsoluteExpiresAt())
-                .isEqualTo(FixedClockConfiguration.NOW.plus(Duration.ofDays(30)));
+                .isEqualTo(NOW.plus(Duration.ofDays(30)));
         assertThat(family.getRevokedAt()).isNull();
         assertThat(family.getRevocationReason()).isNull();
 
         byte[] expectedHash =
                 refreshTokenHasher.hash(issuedRefreshToken.rawValue());
 
-        RefreshTokenEntity persistedToken = tokenRepository
+        RefreshTokenEntity persistedToken = refreshTokenRepository
                 .findByTokenHash(expectedHash)
                 .orElseThrow();
 
         assertThat(persistedToken.getFamily().getId())
                 .isEqualTo(family.getId());
-        assertThat(persistedToken.getCreatedAt()).isEqualTo(FixedClockConfiguration.NOW);
+        assertThat(persistedToken.getCreatedAt()).isEqualTo(NOW);
         assertThat(persistedToken.getExpiresAt())
-                .isEqualTo(FixedClockConfiguration.NOW.plus(Duration.ofDays(7)));
+                .isEqualTo(NOW.plus(Duration.ofDays(7)));
         assertThat(persistedToken.getConsumedAt()).isNull();
 
         assertThat(issuedRefreshToken.rawValue()).isNotBlank();
@@ -134,8 +136,8 @@ class RefreshTokenServiceImplTest {
                         UserNotEligibleForTokenException.class
                 );
 
-        assertThat(familyRepository.findAll()).isEmpty();
-        assertThat(tokenRepository.findAll()).isEmpty();
+        assertThat(refreshTokenFamilyRepository.findAll()).isEmpty();
+        assertThat(refreshTokenRepository.findAll()).isEmpty();
     }
 
     @Test
@@ -148,11 +150,11 @@ class RefreshTokenServiceImplTest {
         byte[] initialHash =
                 refreshTokenHasher.hash(initialToken.rawValue());
 
-        UUID familyId = tokenRepository
+        UUID familyId = refreshTokenRepository
                 .findFamilyIdByTokenHash(initialHash)
                 .orElseThrow();
 
-        Instant familyExpiry = familyRepository
+        Instant familyExpiry = refreshTokenFamilyRepository
                 .findById(familyId)
                 .orElseThrow()
                 .getAbsoluteExpiresAt();
@@ -160,35 +162,35 @@ class RefreshTokenServiceImplTest {
         IssuedRefreshToken replacement =
                 refreshTokenService.rotate(initialToken.rawValue());
 
-        assertThat(familyRepository.findAll()).hasSize(1);
-        assertThat(tokenRepository.findAll()).hasSize(2);
+        assertThat(refreshTokenFamilyRepository.findAll()).hasSize(1);
+        assertThat(refreshTokenRepository.findAll()).hasSize(2);
 
-        RefreshTokenEntity consumedOriginal = tokenRepository
+        RefreshTokenEntity consumedOriginal = refreshTokenRepository
                 .findByTokenHash(initialHash)
                 .orElseThrow();
 
         assertThat(consumedOriginal.getConsumedAt())
-                .isEqualTo(FixedClockConfiguration.NOW);
+                .isEqualTo(NOW);
 
         byte[] replacementHash =
                 refreshTokenHasher.hash(replacement.rawValue());
 
-        RefreshTokenEntity persistedReplacement = tokenRepository
+        RefreshTokenEntity persistedReplacement = refreshTokenRepository
                 .findByTokenHash(replacementHash)
                 .orElseThrow();
 
-        UUID replacementFamilyId = tokenRepository
+        UUID replacementFamilyId = refreshTokenRepository
                 .findFamilyIdByTokenHash(replacementHash)
                 .orElseThrow();
 
         assertThat(replacementFamilyId).isEqualTo(familyId);
         assertThat(persistedReplacement.getConsumedAt()).isNull();
         assertThat(persistedReplacement.getCreatedAt())
-                .isEqualTo(FixedClockConfiguration.NOW);
+                .isEqualTo(NOW);
         assertThat(persistedReplacement.getExpiresAt())
-                .isEqualTo(FixedClockConfiguration.NOW.plus(Duration.ofDays(7)));
+                .isEqualTo(NOW.plus(Duration.ofDays(7)));
 
-        RefreshTokenFamilyEntity persistedFamily = familyRepository
+        RefreshTokenFamilyEntity persistedFamily = refreshTokenFamilyRepository
                 .findById(familyId)
                 .orElseThrow();
 
@@ -210,7 +212,7 @@ class RefreshTokenServiceImplTest {
         byte[] initialHash =
                 refreshTokenHasher.hash(initialToken.rawValue());
 
-        UUID familyId = tokenRepository
+        UUID familyId = refreshTokenRepository
                 .findFamilyIdByTokenHash(initialHash)
                 .orElseThrow();
 
@@ -224,16 +226,16 @@ class RefreshTokenServiceImplTest {
                         .isEqualTo(RefreshTokenFailureReason.EXPIRED)
         );
 
-        List<RefreshTokenEntity> tokens = tokenRepository.findAll();
+        List<RefreshTokenEntity> tokens = refreshTokenRepository.findAll();
         assertThat(tokens).hasSize(1);
 
-        RefreshTokenEntity originalToken = tokenRepository
+        RefreshTokenEntity originalToken = refreshTokenRepository
                 .findByTokenHash(initialHash)
                 .orElseThrow();
 
         assertThat(originalToken.getConsumedAt()).isNull();
 
-        RefreshTokenFamilyEntity family = familyRepository
+        RefreshTokenFamilyEntity family = refreshTokenFamilyRepository
                 .findById(familyId)
                 .orElseThrow();
 
@@ -253,8 +255,41 @@ class RefreshTokenServiceImplTest {
                         .isEqualTo(RefreshTokenFailureReason.UNKNOWN)
         );
 
-        assertThat(tokenRepository.findAll()).isEmpty();
-        assertThat(familyRepository.findAll()).isEmpty();
+        assertThat(refreshTokenRepository.findAll()).isEmpty();
+        assertThat(refreshTokenFamilyRepository.findAll()).isEmpty();
+    }
+
+    @Test
+    void shouldRejectAlreadyConsumedRefreshToken() {
+        UUID userId = insertUser(UserStatus.ACTIVE);
+
+        IssuedRefreshToken first = refreshTokenService.issueFor(userId);
+        refreshTokenService.rotate(first.rawValue());
+
+        assertThatThrownBy(() -> refreshTokenService.rotate(first.rawValue()))
+        .isInstanceOfSatisfying(
+                InvalidRefreshTokenException.class,
+                exception -> assertThat(exception.getReason())
+                        .isEqualTo(RefreshTokenFailureReason.ALREADY_CONSUMED)
+        );
+
+        byte[] initialHash =
+                refreshTokenHasher.hash(first.rawValue());
+
+        UUID reloadedFamilyId = refreshTokenRepository
+                .findFamilyIdByTokenHash(initialHash)
+                .orElseThrow();
+
+        RefreshTokenFamilyEntity reloadedFamily = refreshTokenFamilyRepository
+                .findById(reloadedFamilyId)
+                .orElseThrow();
+
+
+
+        assertThat(reloadedFamily.getRevocationReason()).isEqualTo(TOKEN_REUSE);
+        assertThat(reloadedFamily.getRevokedAt()).isEqualTo(NOW);
+        assertThat(refreshTokenRepository.findAll()).hasSize(2);
+
     }
 
 
