@@ -90,6 +90,11 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
 
         Instant now = clock.instant();
 
+        if (!now.isBefore(presentedToken.getExpiresAt())) {
+            throw new IdentityException.TokenNotEligibleForRotationException();
+        }
+
+
         presentedToken.consume(now);
 
         /*

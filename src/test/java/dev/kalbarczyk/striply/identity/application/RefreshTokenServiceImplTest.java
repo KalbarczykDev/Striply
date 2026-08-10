@@ -8,6 +8,7 @@ import dev.kalbarczyk.striply.identity.infrastructure.persistence.RefreshTokenFa
 import dev.kalbarczyk.striply.identity.infrastructure.persistence.RefreshTokenRepository;
 import dev.kalbarczyk.striply.identity.infrastructure.security.RefreshTokenHasher;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +28,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.when;
 
 @Testcontainers
 @SpringBootTest
@@ -56,6 +58,14 @@ class RefreshTokenServiceImplTest {
 
     @Autowired
     private AppUserRepository appUserRepository;
+
+    @Autowired
+    private FixedClockConfiguration.MutableClock testClock;
+
+    @BeforeEach
+    void setUp() {
+        testClock.setInstant(FixedClockConfiguration.NOW);
+    }
 
     @AfterEach
     void cleanDatabase() {
@@ -177,6 +187,50 @@ class RefreshTokenServiceImplTest {
 
         assertThat(replacement.expiresAt())
                 .isEqualTo(persistedReplacement.getExpiresAt());
+    }
+
+    @Test
+    void shouldNotRotateExpiredRefreshToken() {
+
+        UUID userId = UUID.randomUUID();
+        insertUser(userId, UserStatus.ACTIVE);
+
+
+        IssuedRefreshToken initialToken =
+                refreshTokenService.issueFor(userId);
+
+        byte[] initialHash =
+                refreshTokenHasher.hash(initialToken.rawValue());
+
+        UUID familyId = tokenRepository
+                .findFamilyIdByTokenHash(initialHash)
+                .orElseThrow();
+
+        testClock.setInstant(initialToken.expiresAt());
+
+        assertThatThrownBy(
+                () -> refreshTokenService.rotate(initialToken.rawValue())
+        ).isInstanceOf(
+                IdentityException.TokenNotEligibleForRotationException.class
+        );
+
+        List<RefreshTokenEntity> tokens = tokenRepository.findAll();
+        assertThat(tokens).hasSize(1);
+
+        RefreshTokenEntity originalToken = tokenRepository
+                .findByTokenHash(initialHash)
+                .orElseThrow();
+
+        assertThat(originalToken.getConsumedAt()).isNull();
+
+        RefreshTokenFamilyEntity family = familyRepository
+                .findById(familyId)
+                .orElseThrow();
+
+        assertThat(family.getRevokedAt()).isNull();
+        assertThat(family.getRevocationReason()).isNull();
+
+
     }
 
 
