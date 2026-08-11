@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static dev.kalbarczyk.striply.configuration.FixedClockConfiguration.NOW;
+import static dev.kalbarczyk.striply.identity.domain.RefreshTokenRevocationReason.SECURITY_ACTION;
 import static dev.kalbarczyk.striply.identity.domain.RefreshTokenRevocationReason.TOKEN_REUSE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -323,6 +324,38 @@ class RefreshTokenServiceImplTest {
         assertThat(family.getRevokedAt())
                 .isEqualTo(NOW.plus(Duration.ofDays(7)));
         assertThat(refreshTokenRepository.findAll()).hasSize(2);
+
+    }
+
+    @Test
+    void shouldRejectRefreshTokenFromRevokedFamily() {
+        UUID userId = insertUser(UserStatus.ACTIVE);
+        IssuedRefreshToken original = refreshTokenService.issueFor(userId);
+        byte[] originalHash = refreshTokenHasher.hash(original.rawValue());
+        UUID familyId = refreshTokenRepository
+                .findFamilyIdByTokenHash(originalHash)
+                .orElseThrow();
+
+        RefreshTokenFamilyEntity family = refreshTokenFamilyRepository
+                .findById(familyId)
+                .orElseThrow();
+
+        family.revoke(SECURITY_ACTION, NOW);
+        refreshTokenFamilyRepository.save(family);
+
+        assertThatThrownBy(() -> refreshTokenService.rotate(original.rawValue()))
+                .isInstanceOfSatisfying(
+                        InvalidRefreshTokenException.class,
+                        exception -> assertThat(exception.getReason())
+                                .isEqualTo(RefreshTokenFailureReason.FAMILY_REVOKED)
+                );
+
+        RefreshTokenEntity reloadedToken = refreshTokenRepository
+                .findByTokenHash(originalHash)
+                .orElseThrow();
+
+        assertThat(refreshTokenRepository.findAll()).hasSize(1);
+        assertThat(reloadedToken.getConsumedAt()).isNull();
 
     }
 

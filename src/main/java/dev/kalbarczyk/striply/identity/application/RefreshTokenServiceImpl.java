@@ -104,12 +104,17 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
             );
         }
 
+        if (family.getRevokedAt() != null) {
+            throw new InvalidRefreshTokenException(
+                    RefreshTokenFailureReason.FAMILY_REVOKED
+            );
+        }
+
         if (!now.isBefore(presentedToken.getExpiresAt())) {
             throw new InvalidRefreshTokenException(
                     RefreshTokenFailureReason.EXPIRED
             );
         }
-
 
         presentedToken.consume(now);
 
