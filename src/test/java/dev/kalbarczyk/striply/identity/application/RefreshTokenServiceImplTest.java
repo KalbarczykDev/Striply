@@ -25,6 +25,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static dev.kalbarczyk.striply.configuration.FixedClockConfiguration.NOW;
 import static dev.kalbarczyk.striply.identity.domain.RefreshTokenRevocationReason.SECURITY_ACTION;
@@ -357,6 +362,95 @@ class RefreshTokenServiceImplTest {
         assertThat(refreshTokenRepository.findAll()).hasSize(1);
         assertThat(reloadedToken.getConsumedAt()).isNull();
 
+    }
+
+    @Test
+    void shouldRejectRefreshTokenWhenFamilyHasExpired() {
+        UUID userId = insertUser(UserStatus.ACTIVE);
+        IssuedRefreshToken original = refreshTokenService.issueFor(userId);
+        byte[] originalHash = refreshTokenHasher.hash(original.rawValue());
+
+        testClock.setInstant(NOW.plus(Duration.ofDays(30)));
+
+        assertThatThrownBy(() -> refreshTokenService.rotate(original.rawValue()))
+                .isInstanceOfSatisfying(
+                        InvalidRefreshTokenException.class,
+                        exception -> assertThat(exception.getReason())
+                                .isEqualTo(RefreshTokenFailureReason.FAMILY_EXPIRED)
+                );
+
+        RefreshTokenEntity persistedOriginal = refreshTokenRepository
+                .findByTokenHash(originalHash)
+                .orElseThrow();
+        UUID familyId = persistedOriginal.getFamily().getId();
+        RefreshTokenFamilyEntity persistedFamily = refreshTokenFamilyRepository
+                .findById(familyId)
+                .orElseThrow();
+
+        assertThat(refreshTokenRepository.findAll()).hasSize(1);
+        assertThat(persistedOriginal.getConsumedAt()).isNull();
+        assertThat(persistedFamily.getRevokedAt()).isNull();
+        assertThat(persistedFamily.getRevocationReason()).isNull();
+    }
+
+    @Test
+    void shouldAllowOnlyOneConcurrentRotationAndRevokeFamilyAsReplay() throws Exception {
+        UUID userId = insertUser(UserStatus.ACTIVE);
+        IssuedRefreshToken original = refreshTokenService.issueFor(userId);
+        byte[] originalHash = refreshTokenHasher.hash(original.rawValue());
+        UUID familyId = refreshTokenRepository
+                .findFamilyIdByTokenHash(originalHash)
+                .orElseThrow();
+
+        CountDownLatch requestsReady = new CountDownLatch(2);
+        CountDownLatch startRequests = new CountDownLatch(1);
+
+        try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+            try {
+                var rotation = (java.util.concurrent.Callable<Object>) () -> {
+                    requestsReady.countDown();
+                    startRequests.await();
+
+                    try {
+                        return refreshTokenService.rotate(original.rawValue());
+                    } catch (InvalidRefreshTokenException exception) {
+                        return exception;
+                    }
+                };
+
+                Future<Object> firstResult = executor.submit(rotation);
+                Future<Object> secondResult = executor.submit(rotation);
+
+                assertThat(requestsReady.await(5, TimeUnit.SECONDS)).isTrue();
+                startRequests.countDown();
+
+                List<Object> results = List.of(
+                        firstResult.get(10, TimeUnit.SECONDS),
+                        secondResult.get(10, TimeUnit.SECONDS)
+                );
+
+                assertThat(results)
+                        .filteredOn(IssuedRefreshToken.class::isInstance)
+                        .hasSize(1);
+                assertThat(results)
+                        .filteredOn(InvalidRefreshTokenException.class::isInstance)
+                        .singleElement()
+                        .satisfies(result -> assertThat(
+                                ((InvalidRefreshTokenException) result).getReason()
+                        ).isEqualTo(RefreshTokenFailureReason.ALREADY_CONSUMED));
+            } finally {
+                startRequests.countDown();
+                executor.shutdownNow();
+            }
+        }
+
+        RefreshTokenFamilyEntity persistedFamily = refreshTokenFamilyRepository
+                .findById(familyId)
+                .orElseThrow();
+
+        assertThat(persistedFamily.getRevokedAt()).isEqualTo(NOW);
+        assertThat(persistedFamily.getRevocationReason()).isEqualTo(TOKEN_REUSE);
+        assertThat(refreshTokenRepository.findAll()).hasSize(2);
     }
 
 

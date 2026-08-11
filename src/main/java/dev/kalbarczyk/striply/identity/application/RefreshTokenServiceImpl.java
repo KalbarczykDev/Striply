@@ -110,6 +110,12 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
             );
         }
 
+        if (!now.isBefore(family.getAbsoluteExpiresAt())) {
+            throw new InvalidRefreshTokenException(
+                    RefreshTokenFailureReason.FAMILY_EXPIRED
+            );
+        }
+
         if (!now.isBefore(presentedToken.getExpiresAt())) {
             throw new InvalidRefreshTokenException(
                     RefreshTokenFailureReason.EXPIRED
