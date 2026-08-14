@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -156,5 +157,29 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
                 replacementRawToken,
                 replacementExpiry
         );
+    }
+
+    @Override
+    @Transactional
+    public void logout(String rawToken) {
+        byte[] presentedTokenHash = refreshTokenHasher.hash(rawToken);
+        Optional<UUID> familyIdOpt = refreshTokenRepository
+                .findFamilyIdByTokenHash(presentedTokenHash);
+
+        if (familyIdOpt.isEmpty()) {
+            return;
+        }
+
+        Optional<RefreshTokenFamilyEntity> family = refreshTokenFamilyRepository.findLockedById(familyIdOpt.get());
+
+        if (family.isEmpty()) {
+            return;
+        }
+
+        family.get().revoke(
+                        RefreshTokenRevocationReason.LOGOUT, clock.instant()
+                );
+
+
     }
 }

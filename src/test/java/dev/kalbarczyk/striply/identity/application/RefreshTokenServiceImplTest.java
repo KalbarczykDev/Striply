@@ -32,8 +32,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static dev.kalbarczyk.striply.configuration.FixedClockConfiguration.NOW;
-import static dev.kalbarczyk.striply.identity.domain.RefreshTokenRevocationReason.SECURITY_ACTION;
-import static dev.kalbarczyk.striply.identity.domain.RefreshTokenRevocationReason.TOKEN_REUSE;
+import static dev.kalbarczyk.striply.identity.domain.RefreshTokenRevocationReason.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -451,6 +450,31 @@ class RefreshTokenServiceImplTest {
         assertThat(persistedFamily.getRevokedAt()).isEqualTo(NOW);
         assertThat(persistedFamily.getRevocationReason()).isEqualTo(TOKEN_REUSE);
         assertThat(refreshTokenRepository.findAll()).hasSize(2);
+    }
+
+    @Test
+    void shouldRevokeRefreshTokenFamilyOnLogout() {
+        UUID userId = insertUser(UserStatus.ACTIVE);
+        IssuedRefreshToken original = refreshTokenService.issueFor(userId);
+        byte[] originalHash = refreshTokenHasher.hash(original.rawValue());
+        UUID familyId = refreshTokenRepository
+                .findFamilyIdByTokenHash(originalHash)
+                .orElseThrow();
+
+        refreshTokenService.logout(original.rawValue());
+
+        RefreshTokenFamilyEntity family = refreshTokenFamilyRepository
+                .findById(familyId)
+                .orElseThrow();
+
+        RefreshTokenEntity persistedToken = refreshTokenRepository
+                .findByTokenHash(originalHash)
+                .orElseThrow();
+
+        assertThat(family.getRevokedAt()).isEqualTo(NOW);
+        assertThat(family.getRevocationReason()).isEqualTo(LOGOUT);
+        assertThat(persistedToken.getConsumedAt()).isNull();
+        assertThat(refreshTokenRepository.findAll()).hasSize(1);
     }
 
 
