@@ -1,53 +1,46 @@
 # Striply
 
-Striply is simulated payment infrastructure for developers, technical founders, and small SaaS teams that need to build and test payment flows before integrating a real payment provider. It lets merchants create an organization, define products and prices, generate hosted checkout sessions, run predefined simulator scenarios, inspect payment outcomes and refunds, and receive webhook notifications. Striply never collects or stores real card data; each payment uses a controlled scenario such as success, decline, insufficient funds, delayed processing, or provider timeout.
+Striply is simulated payment infrastructure inspired by Stripe build as portfolio project.
+Its purpose is to display skills in Java, Spring Boot, React, PostgreSQL, AWS, Microservices, Docker.
 
-## Project Status
 
-**Phase 1 — Basic platform**
+## Run Locally
 
-Phase 0 architecture and requirements are complete. 
-PostgreSQL persistence and database migrations are implemented; 
-authentication and organization functionality are next.
+Requirements:
 
-## Planned First Vertical Slice
+- Java 25
+- Docker with Docker Compose
 
-1. Create a product and price.
-2. Create a hosted checkout session.
-3. Complete a simulated payment.
-4. Inspect the payment outcome.
-5. Deliver a signed webhook event.
-6. Issue a full or partial refund.
+Start PostgreSQL:
 
-## Engineering Goals
+```bash
+docker compose up -d postgres
+```
 
-The project is designed to demonstrate:
+Start the application:
 
-- Explicit payment state transitions
-- Tenant isolation and authorization
-- Idempotent mutation handling
-- Concurrency-safe payments and refunds
-- Transactional event delivery
-- Retryable webhook delivery
-- Testing across unit, integration, and end-to-end levels
-- Security and observability designed from the beginning
+```bash
+./gradlew bootRun
+```
 
-## Architecture Approach
+Run the test suite:
 
-Striply begins as a modular monolith. Infrastructure and distributed components will only be introduced when they solve an identified reliability or scaling problem.
+```bash
+./gradlew test
+```
 
-## Technology Direction
-
-Java, Spring Boot, React, TypeScript, PostgreSQL, Docker, and Flyway form the initial stack. Redis, messaging, AWS, Terraform, Kubernetes, and distributed tracing are planned for later phases.
-
-Every new infrastructure component must solve an identified reliability, operational, or scaling problem. Striply will begin as a modular monolith and will not claim scalability that has not been measured.
+See [Local PostgreSQL Setup](docs/operations/local-database.md) for configuration and troubleshooting.
 
 ## Documentation
 
 - [Product scope](docs/architecture/product-scope.md)
-- [Functional requirements](docs/architecture/requirements)
-- [Local PostgreSQL setup](docs/operations/local-database.md)
+- [Backend modules](docs/architecture/backend-modules.md)
+- [Architecture decisions](docs/architecture/decisions)
+- [System context](docs/architecture/system-context.md)
+- [Container architecture](docs/architecture/container-diagram.md)
+- [Authentication flow](docs/security/authentication-flow.md)
+- [First vertical-slice backlog](docs/backlog/first-vertical-slice.md)
 
-## Disclaimer
+## License
 
-Striply is an educational portfolio project. It does not process real payments or collect real card or banking information.
+[MIT](LICENSE).

@@ -14,21 +14,6 @@ Deliver the smallest coherent Striply workflow in which a merchant can authentic
 
 The slice proves domain behavior and local transactional consistency before introducing idempotency records, a transactional outbox, background workers, Redis, a message broker, cloud deployment, or Kubernetes.
 
-## Working Agreement
-
-Before implementation begins on a ticket, the developer must explain:
-
-- the use case and actors;
-- domain rules and invariants;
-- inputs, outputs, and API behavior;
-- authorization and tenant-ownership checks;
-- transaction boundaries;
-- concurrency and failure risks;
-- alternatives considered;
-- planned tests and documentation updates.
-
-Essential rules must not remain vague when coding begins. Each ticket should be delivered in a small commit or focused series of commits whose messages explain intent.
-
 ## Priority and Dependencies
 
 ```text
@@ -62,9 +47,6 @@ VS-014 Full and partial refunds
     ↓
 VS-015 End-to-end verification
 ```
-
-Independent frontend preparation may overlap backend work only when its API contract is already accepted. Parallel work must not invent conflicting contracts.
-
 ---
 
 ## VS-001 — Establish Backend Module Boundaries
