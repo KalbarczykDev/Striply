@@ -461,6 +461,14 @@ class RefreshTokenServiceImplTest {
         assertThat(refreshTokenRepository.findAll()).hasSize(2);
     }
 
+    @Test
+    void shouldTreatUnknownTokenLogoutAsSuccessfulNoOp(){
+        refreshTokenService.logout(UNKNOWN_RAW_TOKEN);
+
+        assertThat(refreshTokenFamilyRepository.findAll()).isEmpty();
+        assertThat(refreshTokenRepository.findAll()).isEmpty();
+    }
+
     private UUID insertUser(UserStatus status) {
         jdbcTemplate.update(
                 """
