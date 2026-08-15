@@ -1,4 +1,4 @@
-package dev.kalbarczyk.striply.identity.service;
+package dev.kalbarczyk.striply.identity.exception;
 
 public final class UserNotEligibleForTokenException
         extends IdentityException {

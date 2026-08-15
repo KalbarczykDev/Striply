@@ -1,4 +1,4 @@
-package dev.kalbarczyk.striply.identity.service;
+package dev.kalbarczyk.striply.identity.model;
 
 public enum RefreshTokenFailureReason {
     MALFORMED,
