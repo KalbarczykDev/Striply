@@ -2,6 +2,14 @@
 
 This document explains how to run the PostgreSQL database used by Striply during local development and how Flyway migrations are applied during application startup.
 
+## Status
+
+Review
+
+## Date
+
+15-08-2026
+
 ## Prerequisites
 
 - Docker with Docker Compose support

@@ -2,7 +2,11 @@
 
 ## Status
 
-Accepted — Phase 0 ubiquitous language and input to the initial ERD and API design.
+Review
+
+## Date
+
+15-08-2026
 
 ## Conventions
 

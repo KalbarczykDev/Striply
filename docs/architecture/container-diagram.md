@@ -2,11 +2,11 @@
 
 ## Status
 
-Accepted — Phase 0 container design based on the accepted system context and progressive-delivery strategy.
+Review
 
-- **Architecture version:** Phase 0, version 0.1
-- **Date:** 2026-08-05
-- **Diagram source:** [`../diagrams/container-diagram.puml`](../diagrams/container-diagram.puml)
+## Date
+
+15-08-2026
 
 ## Title and Scope
 

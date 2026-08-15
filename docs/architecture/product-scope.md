@@ -1,5 +1,13 @@
 # Product Scope
 
+## Status
+
+Review
+
+## Date
+
+15-08-2026
+
 ## Product Definition
 
 Striply is simulated payment infrastructure for developers,

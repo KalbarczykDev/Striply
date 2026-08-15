@@ -2,11 +2,11 @@
 
 ## Status
 
-Accepted — Phase 1 evolving logical data model. This is design input; only entities backed by committed migrations are implemented.
+Review
 
-- **Architecture version:** Phase 1, version 0.2
-- **Date:** 2026-08-08
-- **Diagram source:** [`../diagrams/initial-erd.mmd`](../diagrams/initial-erd.mmd)
+## Date
+
+15-08-2026
 
 ## Title and Scope
 

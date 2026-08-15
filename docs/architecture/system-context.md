@@ -2,11 +2,11 @@
 
 ## Status
 
-Accepted — Phase 0 logical system context based on the accepted actor model and boundary description.
+Review
 
-- **Architecture version:** Phase 0, version 0.1
-- **Date:** 2026-08-05
-- **Diagram source:** [`../diagrams/system-context.puml`](../diagrams/system-context.puml)
+## Date
+
+15-08-2026
 
 ## Title and Scope
 

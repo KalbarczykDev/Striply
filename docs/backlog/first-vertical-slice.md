@@ -2,11 +2,11 @@
 
 ## Status
 
-Accepted — Phase 0 prioritized backlog for the first synchronous checkout-to-refund slice.
+Review
 
-- **Architecture version:** Phase 0, version 0.1
-- **Date:** 2026-08-05
-- **Priority:** All listed tickets are required in the stated order unless an explicit dependency review changes it.
+## Date
+
+15-08-2026
 
 ## Goal
 

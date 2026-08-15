@@ -6,7 +6,7 @@ Accepted
 
 ## Date
 
-2026-08-05
+15-08-2026
 
 ## Context
 
@@ -68,19 +68,6 @@ All costs are deemed acceptable for the development stage
   internals.
 - **Database coupling:** each feature must own its repositories, and cross-feature constraints or transactions must be
   documented.
-
-## Conditions That Would Cause Reconsideration
-
-Reconsider this decision when:
-
-- measured load requires independent scaling;
-- a feature needs stronger failure isolation;
-- separate teams require independent deployment;
-- security, compliance, or data-residency rules require isolation;
-- database or transaction coupling blocks a valuable extraction.
-
-Reconsideration does not automatically require microservices. A separate worker, schema, read model, or queue may solve
-the problem with less complexity.
 
 ## Related Documentation
 

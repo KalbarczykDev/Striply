@@ -2,7 +2,11 @@
 
 ## Status
 
-Partially implemented — VS-001
+Review
+
+## Date
+
+15-08-2026
 
 ## Package Convention
 

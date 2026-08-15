@@ -2,11 +2,11 @@
 
 ## Status
 
-Accepted design for VS-003; implementation is not yet complete.
+Review
 
-- **Architecture version:** Phase 1, version 0.1
-- **Date:** 2026-08-08
-- **Diagram source:** [`../diagrams/authentication-sequence.mmd`](../diagrams/authentication-sequence.mmd)
+## Date
+
+15-08-2026
 
 ## Scope
 

@@ -2,7 +2,11 @@
 
 ## Status
 
-Accepted — Phase 0 actor model and trust-boundary input.
+Accepted
+
+## Date
+
+15-08-2026
 
 ## Merchant Organization Member
 
