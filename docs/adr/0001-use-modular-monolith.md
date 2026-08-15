@@ -45,25 +45,32 @@ webhook
 developer
 audit
 shared
-infrastructure
 ```
 
-Each domain module may use a structure such as:
+Each feature uses layered package structure such as:
 
 ```text
+web
+service
+repository
+model
+security
+config
 api
-application
-domain
-infrastructure
 ```
 
-This internal structure is a guideline, not a requirement to apply complex domain-driven design to simple CRUD modules. Payment intents, payments, refunds, checkout sessions, webhook delivery, idempotency, and other invariant-heavy concepts receive richer domain behavior. Administrative modules may remain simpler.
+Packages are created only when required. `web` owns controllers and transport DTOs,
+`service` owns use-case orchestration and transactions,
+`repository` owns Spring Data JPA repositories,
+and `model` owns domain models.
+`security`, `config`, and cross-feature `api` packages are optional.
+This structure is a guideline, not a requirement to create identical empty layers in every feature.
 
 ### Boundary Rules
 
 1. A module owns its domain behavior, persistence mappings, repositories, and internal implementation.
 2. Other modules interact through documented application interfaces, stable shared identifiers, or explicit events.
-3. A module must not call another module's internal repository or directly depend on its infrastructure implementation.
+3. A module must not call another module's internal service, repository, model, security, configuration, or web implementation.
 4. Cross-module database reads are not a substitute for an application interface.
 5. Shared code is limited to genuinely cross-cutting primitives such as money, identifiers, clocks, and error contracts. `shared` must not become a location for unrelated domain behavior.
 6. Synchronous cross-module orchestration is allowed when the use case needs an immediate result or one local transaction.

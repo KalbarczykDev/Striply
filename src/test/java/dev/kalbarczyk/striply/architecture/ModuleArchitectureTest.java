@@ -23,15 +23,13 @@ class ModuleArchitectureTest {
 
 
     @ArchTest
-    static final ArchRule domain_should_not_depend_on_frameworks = noClasses()
+    static final ArchRule web_should_not_access_repositories_directly = noClasses()
             .that()
-            .resideInAPackage("..domain..")
+            .resideInAPackage("..web..")
             .should()
             .dependOnClassesThat()
-            .resideInAnyPackage(
-                    "org.springframework..",
-                    "jakarta.persistence.."
-            );
+            .resideInAPackage("..repository..")
+            .allowEmptyShould(true);
 
     @ArchTest
     static final ArchRule catalog_internals_should_not_be_accessed_by_other_modules =
@@ -84,10 +82,12 @@ class ModuleArchitectureTest {
                 .should()
                 .dependOnClassesThat()
                 .resideInAnyPackage(
-                        modulePackage + ".application..",
-                        modulePackage + ".domain..",
-                        modulePackage + ".infrastructure..",
-                        modulePackage + ".api.web.."
+                        modulePackage + ".web..",
+                        modulePackage + ".service..",
+                        modulePackage + ".repository..",
+                        modulePackage + ".model..",
+                        modulePackage + ".security..",
+                        modulePackage + ".config.."
                 )
                 .allowEmptyShould(true)
                 .as("classes outside " + module

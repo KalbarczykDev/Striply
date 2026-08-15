@@ -221,16 +221,6 @@ This policy favors compromise containment over session availability. The browser
 - An invalid request origin is rejected before token rotation.
 - Tokens and credentials are excluded from application logs, metrics, and error responses.
 
-## Logout Behavior
-
-Refresh-token logout is implemented at the application-service boundary. A known unconsumed token revokes its family with the `LOGOUT` reason. The token is not consumed or deleted, preserving authentication history.
-
-Logout with an unknown token is an idempotent no-op. This avoids revealing whether a presented refresh token exists.
-
-Logout with a previously consumed token is treated internally as replay. The family is revoked with `TOKEN_REUSE`, and any replacement token in that family becomes unusable. An already-revoked family retains its original revocation timestamp and reason.
-
-The HTTP logout endpoint and refresh-cookie clearing behavior are not yet implemented.
-
 ## Assumptions
 
 - Browser and API deployment remain same-site so `SameSite=Strict` is usable.

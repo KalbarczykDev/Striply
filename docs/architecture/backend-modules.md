@@ -10,29 +10,36 @@ Partially implemented — VS-001
 
 ## Internal Layers
 
-- `api` — public inter-module contracts
-- `api.web` — HTTP controllers and request/response DTOs; other modules must not depend on this package
-- `application` — use-case orchestration and transaction boundaries
-- `domain` — business rules without Spring or persistence dependencies
-- `infrastructure` — persistence, security mechanisms, provider integrations, and other technical adapters owned by the module
+- `web` — HTTP controllers, with request and response DTOs in `web.dto`
+- `service` — use-case orchestration, transaction boundaries, application results and failures
+- `repository` — persistence access owned by the feature
+- `model` — feature-owned state, JPA entities, enums and business behavior
+- `security` — feature-owned security mechanisms such as token hashing, signing and validation
+- `config` — optional feature-specific Spring configuration and validated properties
+- `api` — optional public contracts used by another feature
+
+Packages are created only when a feature has classes that require them. Empty placeholder packages are not maintained.
 
 ## Dependency Rules
 
 ### Between modules
 
-- Modules may use another module only through its `api` package.
-- Other modules must not access another module's `application`, `domain`, `infrastructure`, or `api.web` packages.
+- Features may use another feature only through its `api` package.
+- Other features must not access another feature's `web`, `service`, `repository`, `model`, `security`, or `config` packages.
 - Module dependency cycles are forbidden.
 
 ### Inside a module
 
-Striply uses a pragmatic layered structure inside each module:
+Striply uses a pragmatic feature-first layered structure:
 
 ```text
-api.web → application → infrastructure
-              │               │
-              └──→ domain ←───┘
+web → service → repository
+         │          │
+         ├→ security│
+         └→ model ←─┘
 ```
+
+Controllers call services rather than repositories. JPA annotations are permitted in `model`; Striply does not maintain a separate persistence-entity hierarchy. Application-wide Spring wiring remains in the root `configuration` package. Spring Security's maintained resource-server support owns bearer-token filtering; Striply does not implement a custom JWT authentication filter without a concrete unmet requirement.
 
 ## Modules
 
@@ -49,7 +56,7 @@ api.web → application → infrastructure
 | `developer`      | API-key creation, hashing, scopes, rotation, revocation and developer integration tooling                                 | Manage organization-scoped machine credentials and expose safe API-key metadata                                            |
 | `audit`          | Append-only audit entries, actor and target metadata, security-sensitive action history                                   | Record safe audit facts and provide organization-scoped audit queries                                                      |
 | `shared`         | Stable cross-domain primitives such as money, public identifiers, clocks and common error contracts when proven necessary | Supply dependency-light primitives only; it exposes no business workflow or persistence access                             |
-| `infrastructure` | Application configuration, framework wiring, observability setup and cross-cutting technical adapters                     | Assemble and operate the application without owning or exposing domain behavior                                            |
+| `configuration`  | Application-wide framework wiring, observability setup and cross-cutting configuration                                    | Assemble and operate the application without owning or exposing feature behavior                                           |
 
 The table defines ownership, not a commitment to create every listed class during VS-001. A public responsibility
 becomes an implemented contract only when a ticket defines its inputs, outputs, failure behavior and authorization
