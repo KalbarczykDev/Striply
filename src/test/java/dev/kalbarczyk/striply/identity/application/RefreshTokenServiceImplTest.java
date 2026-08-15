@@ -147,31 +147,21 @@ class RefreshTokenServiceImplTest {
 
     @Test
     void shouldRotateValidRefreshToken() {
-        UUID userId = insertUser(UserStatus.ACTIVE);
-
-        IssuedRefreshToken initialToken =
-                refreshTokenService.issueFor(userId);
-
-        byte[] initialHash =
-                refreshTokenHasher.hash(initialToken.rawValue());
-
-        UUID familyId = refreshTokenRepository
-                .findFamilyIdByTokenHash(initialHash)
-                .orElseThrow();
+        TokenFixture initial = issueTokenForActiveUser();
 
         Instant familyExpiry = refreshTokenFamilyRepository
-                .findById(familyId)
+                .findById(initial.familyId())
                 .orElseThrow()
                 .getAbsoluteExpiresAt();
 
         IssuedRefreshToken replacement =
-                refreshTokenService.rotate(initialToken.rawValue());
+                refreshTokenService.rotate(initial.issued().rawValue());
 
         assertThat(refreshTokenFamilyRepository.findAll()).hasSize(1);
         assertThat(refreshTokenRepository.findAll()).hasSize(2);
 
         RefreshTokenEntity consumedOriginal = refreshTokenRepository
-                .findByTokenHash(initialHash)
+                .findByTokenHash(initial.hash())
                 .orElseThrow();
 
         assertThat(consumedOriginal.getConsumedAt())
@@ -188,7 +178,7 @@ class RefreshTokenServiceImplTest {
                 .findFamilyIdByTokenHash(replacementHash)
                 .orElseThrow();
 
-        assertThat(replacementFamilyId).isEqualTo(familyId);
+        assertThat(replacementFamilyId).isEqualTo(initial.familyId());
         assertThat(persistedReplacement.getConsumedAt()).isNull();
         assertThat(persistedReplacement.getCreatedAt())
                 .isEqualTo(NOW);
@@ -196,7 +186,7 @@ class RefreshTokenServiceImplTest {
                 .isEqualTo(NOW.plus(Duration.ofDays(7)));
 
         RefreshTokenFamilyEntity persistedFamily = refreshTokenFamilyRepository
-                .findById(familyId)
+                .findById(initial.familyId())
                 .orElseThrow();
 
         assertThat(persistedFamily.getAbsoluteExpiresAt())
@@ -209,22 +199,12 @@ class RefreshTokenServiceImplTest {
 
     @Test
     void shouldNotRotateExpiredRefreshToken() {
-        UUID userId = insertUser(UserStatus.ACTIVE);
+        TokenFixture initial = issueTokenForActiveUser();
 
-        IssuedRefreshToken initialToken =
-                refreshTokenService.issueFor(userId);
-
-        byte[] initialHash =
-                refreshTokenHasher.hash(initialToken.rawValue());
-
-        UUID familyId = refreshTokenRepository
-                .findFamilyIdByTokenHash(initialHash)
-                .orElseThrow();
-
-        testClock.setInstant(initialToken.expiresAt());
+        testClock.setInstant(initial.issued().expiresAt());
 
         assertThatThrownBy(
-                () -> refreshTokenService.rotate(initialToken.rawValue())
+                () -> refreshTokenService.rotate(initial.issued().rawValue())
         ).isInstanceOfSatisfying(
                 InvalidRefreshTokenException.class,
                 exception -> assertThat(exception.getReason())
@@ -235,13 +215,13 @@ class RefreshTokenServiceImplTest {
         assertThat(tokens).hasSize(1);
 
         RefreshTokenEntity originalToken = refreshTokenRepository
-                .findByTokenHash(initialHash)
+                .findByTokenHash(initial.hash())
                 .orElseThrow();
 
         assertThat(originalToken.getConsumedAt()).isNull();
 
         RefreshTokenFamilyEntity family = refreshTokenFamilyRepository
-                .findById(familyId)
+                .findById(initial.familyId())
                 .orElseThrow();
 
         assertThat(family.getRevokedAt()).isNull();
@@ -266,27 +246,20 @@ class RefreshTokenServiceImplTest {
 
     @Test
     void shouldRejectAlreadyConsumedRefreshToken() {
-        UUID userId = insertUser(UserStatus.ACTIVE);
+        TokenFixture first = issueTokenForActiveUser();
+        refreshTokenService.rotate(first.issued().rawValue());
 
-        IssuedRefreshToken first = refreshTokenService.issueFor(userId);
-        refreshTokenService.rotate(first.rawValue());
-
-        assertThatThrownBy(() -> refreshTokenService.rotate(first.rawValue()))
+        assertThatThrownBy(
+                () -> refreshTokenService.rotate(first.issued().rawValue())
+        )
                 .isInstanceOfSatisfying(
                         InvalidRefreshTokenException.class,
                         exception -> assertThat(exception.getReason())
                                 .isEqualTo(RefreshTokenFailureReason.ALREADY_CONSUMED)
                 );
 
-        byte[] initialHash =
-                refreshTokenHasher.hash(first.rawValue());
-
-        UUID reloadedFamilyId = refreshTokenRepository
-                .findFamilyIdByTokenHash(initialHash)
-                .orElseThrow();
-
         RefreshTokenFamilyEntity reloadedFamily = refreshTokenFamilyRepository
-                .findById(reloadedFamilyId)
+                .findById(first.familyId())
                 .orElseThrow();
 
 
@@ -298,30 +271,24 @@ class RefreshTokenServiceImplTest {
 
     @Test
     void shouldTreatExpiredConsumedTokenAsReplay() {
-        UUID userId = insertUser(UserStatus.ACTIVE);
-
-        IssuedRefreshToken original = refreshTokenService.issueFor(userId);
-        refreshTokenService.rotate(original.rawValue());
+        TokenFixture original = issueTokenForActiveUser();
+        refreshTokenService.rotate(original.issued().rawValue());
 
         testClock.setInstant(
                 NOW.plus(Duration.ofDays(7))
         );
 
-        assertThatThrownBy(() -> refreshTokenService.rotate(original.rawValue()))
+        assertThatThrownBy(
+                () -> refreshTokenService.rotate(original.issued().rawValue())
+        )
                 .isInstanceOfSatisfying(
                         InvalidRefreshTokenException.class,
                         exception -> assertThat(exception.getReason())
                                 .isEqualTo(RefreshTokenFailureReason.ALREADY_CONSUMED)
                 );
 
-        byte[] originalHash = refreshTokenHasher.hash(original.rawValue());
-
-        UUID familyId = refreshTokenRepository
-                .findFamilyIdByTokenHash(originalHash)
-                .orElseThrow();
-
         RefreshTokenFamilyEntity family = refreshTokenFamilyRepository
-                .findById(familyId)
+                .findById(original.familyId())
                 .orElseThrow();
 
         assertThat(family.getRevocationReason()).isEqualTo(TOKEN_REUSE);
@@ -333,21 +300,18 @@ class RefreshTokenServiceImplTest {
 
     @Test
     void shouldRejectRefreshTokenFromRevokedFamily() {
-        UUID userId = insertUser(UserStatus.ACTIVE);
-        IssuedRefreshToken original = refreshTokenService.issueFor(userId);
-        byte[] originalHash = refreshTokenHasher.hash(original.rawValue());
-        UUID familyId = refreshTokenRepository
-                .findFamilyIdByTokenHash(originalHash)
-                .orElseThrow();
+        TokenFixture original = issueTokenForActiveUser();
 
         RefreshTokenFamilyEntity family = refreshTokenFamilyRepository
-                .findById(familyId)
+                .findById(original.familyId())
                 .orElseThrow();
 
         family.revoke(SECURITY_ACTION, NOW);
         refreshTokenFamilyRepository.save(family);
 
-        assertThatThrownBy(() -> refreshTokenService.rotate(original.rawValue()))
+        assertThatThrownBy(
+                () -> refreshTokenService.rotate(original.issued().rawValue())
+        )
                 .isInstanceOfSatisfying(
                         InvalidRefreshTokenException.class,
                         exception -> assertThat(exception.getReason())
@@ -355,7 +319,7 @@ class RefreshTokenServiceImplTest {
                 );
 
         RefreshTokenEntity reloadedToken = refreshTokenRepository
-                .findByTokenHash(originalHash)
+                .findByTokenHash(original.hash())
                 .orElseThrow();
 
         assertThat(refreshTokenRepository.findAll()).hasSize(1);
@@ -365,13 +329,13 @@ class RefreshTokenServiceImplTest {
 
     @Test
     void shouldRejectRefreshTokenWhenFamilyHasExpired() {
-        UUID userId = insertUser(UserStatus.ACTIVE);
-        IssuedRefreshToken original = refreshTokenService.issueFor(userId);
-        byte[] originalHash = refreshTokenHasher.hash(original.rawValue());
+        TokenFixture original = issueTokenForActiveUser();
 
         testClock.setInstant(NOW.plus(Duration.ofDays(30)));
 
-        assertThatThrownBy(() -> refreshTokenService.rotate(original.rawValue()))
+        assertThatThrownBy(
+                () -> refreshTokenService.rotate(original.issued().rawValue())
+        )
                 .isInstanceOfSatisfying(
                         InvalidRefreshTokenException.class,
                         exception -> assertThat(exception.getReason())
@@ -379,11 +343,10 @@ class RefreshTokenServiceImplTest {
                 );
 
         RefreshTokenEntity persistedOriginal = refreshTokenRepository
-                .findByTokenHash(originalHash)
+                .findByTokenHash(original.hash())
                 .orElseThrow();
-        UUID familyId = persistedOriginal.getFamily().getId();
         RefreshTokenFamilyEntity persistedFamily = refreshTokenFamilyRepository
-                .findById(familyId)
+                .findById(original.familyId())
                 .orElseThrow();
 
         assertThat(refreshTokenRepository.findAll()).hasSize(1);
@@ -394,12 +357,7 @@ class RefreshTokenServiceImplTest {
 
     @Test
     void shouldAllowOnlyOneConcurrentRotationAndRevokeFamilyAsReplay() throws Exception {
-        UUID userId = insertUser(UserStatus.ACTIVE);
-        IssuedRefreshToken original = refreshTokenService.issueFor(userId);
-        byte[] originalHash = refreshTokenHasher.hash(original.rawValue());
-        UUID familyId = refreshTokenRepository
-                .findFamilyIdByTokenHash(originalHash)
-                .orElseThrow();
+        TokenFixture original = issueTokenForActiveUser();
 
         CountDownLatch requestsReady = new CountDownLatch(2);
         CountDownLatch startRequests = new CountDownLatch(1);
@@ -411,7 +369,9 @@ class RefreshTokenServiceImplTest {
                     startRequests.await();
 
                     try {
-                        return refreshTokenService.rotate(original.rawValue());
+                        return refreshTokenService.rotate(
+                                original.issued().rawValue()
+                        );
                     } catch (InvalidRefreshTokenException exception) {
                         return exception;
                     }
@@ -444,7 +404,7 @@ class RefreshTokenServiceImplTest {
         }
 
         RefreshTokenFamilyEntity persistedFamily = refreshTokenFamilyRepository
-                .findById(familyId)
+                .findById(original.familyId())
                 .orElseThrow();
 
         assertThat(persistedFamily.getRevokedAt()).isEqualTo(NOW);
@@ -454,21 +414,16 @@ class RefreshTokenServiceImplTest {
 
     @Test
     void shouldRevokeRefreshTokenFamilyOnLogout() {
-        UUID userId = insertUser(UserStatus.ACTIVE);
-        IssuedRefreshToken original = refreshTokenService.issueFor(userId);
-        byte[] originalHash = refreshTokenHasher.hash(original.rawValue());
-        UUID familyId = refreshTokenRepository
-                .findFamilyIdByTokenHash(originalHash)
-                .orElseThrow();
+        TokenFixture original = issueTokenForActiveUser();
 
-        refreshTokenService.logout(original.rawValue());
+        refreshTokenService.logout(original.issued().rawValue());
 
         RefreshTokenFamilyEntity family = refreshTokenFamilyRepository
-                .findById(familyId)
+                .findById(original.familyId())
                 .orElseThrow();
 
         RefreshTokenEntity persistedToken = refreshTokenRepository
-                .findByTokenHash(originalHash)
+                .findByTokenHash(original.hash())
                 .orElseThrow();
 
         assertThat(family.getRevokedAt()).isEqualTo(NOW);
@@ -477,6 +432,34 @@ class RefreshTokenServiceImplTest {
         assertThat(refreshTokenRepository.findAll()).hasSize(1);
     }
 
+    @Test
+    void shouldTreatLogoutWithConsumedTokenAsReplay() {
+        TokenFixture original = issueTokenForActiveUser();
+
+        IssuedRefreshToken replacement =
+                refreshTokenService.rotate(original.issued().rawValue());
+        byte[] replacementHash =
+                refreshTokenHasher.hash(replacement.rawValue());
+
+        refreshTokenService.logout(original.issued().rawValue());
+
+        assertThat(refreshTokenFamilyRepository.findById(original.familyId()))
+                .hasValueSatisfying(family -> {
+                    assertThat(family.getRevokedAt()).isEqualTo(NOW);
+                    assertThat(family.getRevocationReason())
+                            .isEqualTo(TOKEN_REUSE);
+                });
+
+        assertThat(refreshTokenRepository.findByTokenHash(original.hash()))
+                .hasValueSatisfying(token ->
+                        assertThat(token.getConsumedAt()).isEqualTo(NOW));
+
+        assertThat(refreshTokenRepository.findByTokenHash(replacementHash))
+                .hasValueSatisfying(token ->
+                        assertThat(token.getConsumedAt()).isNull());
+
+        assertThat(refreshTokenRepository.findAll()).hasSize(2);
+    }
 
     private UUID insertUser(UserStatus status) {
         jdbcTemplate.update(
@@ -501,5 +484,21 @@ class RefreshTokenServiceImplTest {
         return USER_ID;
     }
 
+    private TokenFixture issueTokenForActiveUser() {
+        UUID userId = insertUser(UserStatus.ACTIVE);
+        IssuedRefreshToken issued = refreshTokenService.issueFor(userId);
+        byte[] hash = refreshTokenHasher.hash(issued.rawValue());
+        UUID familyId = refreshTokenRepository
+                .findFamilyIdByTokenHash(hash)
+                .orElseThrow();
 
+        return new TokenFixture(issued, hash, familyId);
+    }
+
+    private record TokenFixture(
+            IssuedRefreshToken issued,
+            byte[] hash,
+            UUID familyId
+    ) {
+    }
 }
