@@ -17,7 +17,7 @@ This diagram intentionally does not show frontend applications, backend modules,
 
 ## Context Diagram
 
-The source uses C4-PlantUML. Render [`system-context.puml`](../diagrams/system-context.puml) with PlantUML and its C4 standard library to generate an image.
+The source uses C4-PlantUML. Render [`system-context.puml`](diagrams/system-context.puml) with PlantUML and its C4 standard library to generate an image.
 
 ```text
 Merchant member ──HTTPS──> Striply <──HTTPS── Customer

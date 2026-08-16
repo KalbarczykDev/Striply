@@ -27,7 +27,7 @@ No container in this diagram should be interpreted as production-ready merely be
 
 ## Container Diagram
 
-Render [`container-diagram.puml`](../diagrams/container-diagram.puml) with PlantUML and its C4 standard library. The following is a readable fallback:
+Render [`container-diagram.puml`](diagrams/container-diagram.puml) with PlantUML and its C4 standard library. The following is a readable fallback:
 
 ```text
 Merchant member ──HTTPS──> React Web Application <──HTTPS── Customer

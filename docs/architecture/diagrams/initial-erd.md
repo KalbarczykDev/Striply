@@ -17,7 +17,7 @@ The model is intentionally logical. Exact PostgreSQL types, column lengths, chec
 
 ## Diagram
 
-The authoritative Mermaid source is stored in [`initial-erd.mmd`](../diagrams/initial-erd.mmd). GitHub and Mermaid-compatible editors can render it directly.
+The authoritative Mermaid source is stored in [`initial-erd.mmd`](diagrams/initial-erd.mmd). GitHub and Mermaid-compatible editors can render it directly.
 
 The diagram uses:
 
