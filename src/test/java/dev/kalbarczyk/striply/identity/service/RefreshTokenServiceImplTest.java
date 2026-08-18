@@ -19,6 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.TestConstructor;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
@@ -42,20 +43,18 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Testcontainers
 @SpringBootTest
+@TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 @Import(FixedClockConfiguration.class)
 class RefreshTokenServiceImplTest {
 
     private static final UUID USER_ID =
             UUID.fromString("10000000-0000-0000-0000-000000000001");
 
-    private static final String USER_PUBLIC_ID =
-            "usr_test_user_000000000001";
-
     private static final String USER_EMAIL =
             "developer@example.com";
 
     private static final String TEST_PASSWORD_HASH =
-            "{argon2}test-password-hash";
+            "{bcrypt}test-password-hash";
 
     // 43 Base64URL characters—the shape produced from 32 random bytes.
     private static final String UNKNOWN_RAW_TOKEN =
@@ -67,25 +66,32 @@ class RefreshTokenServiceImplTest {
             new PostgreSQLContainer("postgres:17-alpine");
 
 
-    @Autowired
-    private RefreshTokenFamilyRepository refreshTokenFamilyRepository;
+    private final RefreshTokenFamilyRepository refreshTokenFamilyRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
+    private final RefreshTokenHasher refreshTokenHasher;
+    private final JdbcTemplate jdbcTemplate;
+    private final RefreshTokenService refreshTokenService;
+    private final AppUserRepository appUserRepository;
+    private final FixedClockConfiguration.MutableClock testClock;
 
     @Autowired
-    private RefreshTokenRepository refreshTokenRepository;
-
-    @Autowired
-    private RefreshTokenHasher refreshTokenHasher;
-
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
-    @Autowired
-    private RefreshTokenService refreshTokenService;
-
-    @Autowired
-    private AppUserRepository appUserRepository;
-
-    @Autowired
-    private FixedClockConfiguration.MutableClock testClock;
+    RefreshTokenServiceImplTest(
+            RefreshTokenFamilyRepository refreshTokenFamilyRepository,
+            RefreshTokenRepository refreshTokenRepository,
+            RefreshTokenHasher refreshTokenHasher,
+            JdbcTemplate jdbcTemplate,
+            RefreshTokenService refreshTokenService,
+            AppUserRepository appUserRepository,
+            FixedClockConfiguration.MutableClock testClock
+    ) {
+        this.refreshTokenFamilyRepository = refreshTokenFamilyRepository;
+        this.refreshTokenRepository = refreshTokenRepository;
+        this.refreshTokenHasher = refreshTokenHasher;
+        this.jdbcTemplate = jdbcTemplate;
+        this.refreshTokenService = refreshTokenService;
+        this.appUserRepository = appUserRepository;
+        this.testClock = testClock;
+    }
 
     @BeforeEach
     void setUp() {
@@ -466,7 +472,7 @@ class RefreshTokenServiceImplTest {
     }
 
     @Test
-    void shouldTreatUnknownTokenLogoutAsSuccessfulNoOp(){
+    void shouldTreatUnknownTokenLogoutAsSuccessfulNoOp() {
         refreshTokenService.logout(UNKNOWN_RAW_TOKEN);
 
         assertThat(refreshTokenFamilyRepository.findAll()).isEmpty();
@@ -478,17 +484,13 @@ class RefreshTokenServiceImplTest {
                 """
                         INSERT INTO app_user (
                             id,
-                            public_id,
                             email,
-                            normalized_email,
                             password_hash,
                             status
                         )
-                        VALUES (?, ?, ?, ?, ?, ?)
+                        VALUES (?, ?, ?, ?)
                         """,
                 USER_ID,
-                USER_PUBLIC_ID,
-                USER_EMAIL,
                 USER_EMAIL,
                 TEST_PASSWORD_HASH,
                 status.name()

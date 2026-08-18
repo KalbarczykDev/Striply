@@ -21,29 +21,33 @@ public class AppUserEntity {
     @GeneratedValue
     private UUID id;
 
-    @Column(name = "public_id",length = 64, unique = true, nullable = false)
-    private String publicId;
-
-    @Column(name = "email",length = 320,nullable = false)
+    @Column(name = "email", length = 320,unique = true, nullable = false)
     private String email;
-
-    @Column(name = "normalized_email",length = 320, unique = true, nullable = false)
-    private String normalizedEmail;
 
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
-    @Column(name = "status",length = 32, nullable = false)
+    @Column(name = "status", length = 32, nullable = false)
     @Enumerated(EnumType.STRING)
     private UserStatus status = UserStatus.ACTIVE;
 
     @CreationTimestamp
-    @Column(name = "created_at",nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
     @UpdateTimestamp
-    @Column(name = "updated_at",nullable = false)
+    @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    public static AppUserEntity register(
+            String email,
+            String passwordHash
+    ) {
+        AppUserEntity user = new AppUserEntity();
+        user.email = email;
+        user.passwordHash = passwordHash;
+        user.status = UserStatus.ACTIVE;
+        return user;
+    }
 
 }

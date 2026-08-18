@@ -12,14 +12,14 @@ Review
 
 - **Merchant** describes an organization using Striply to offer simulated checkout flows. It is a business concept, not a separate persisted entity in the initial model.
 - **Organization-owned** means a resource belongs to exactly one organization and must be accessed only through an authenticated context authorized for that organization.
-- **Public identifier** means a non-sequential, externally visible identifier with a resource-specific prefix. Internal database identifiers are never exposed by external APIs.
+- **Public identifier** means a non-sequential identifier exposed by an API. Business resources generally use a resource-specific prefix. A user uses its UUID directly; identifiers that are internal only are not exposed.
 - **Money** is represented by a positive or zero integer amount in a currency's minor unit together with an explicit supported ISO 4217 currency code. Floating-point values are not used for monetary storage or calculation.
 - Timestamps are stored in UTC. API representations must include an unambiguous offset or use the `Z` UTC designator.
 - Status changes for behavior-rich financial concepts occur through explicit domain operations, not arbitrary status setters.
 
 ## Identity and Organization
 
-### User (`usr_`)
+### User (UUID)
 
 A human identity that can authenticate to the merchant-facing application. A user owns login credentials and profile information but does not gain access to organization data merely by existing.
 

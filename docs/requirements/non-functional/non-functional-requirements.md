@@ -87,7 +87,7 @@ Passwords, API keys, refresh tokens, and webhook signing secrets must never be s
 
 ### NFR-SEC-03 — Public identifiers
 
-External APIs must expose non-sequential prefixed identifiers rather than sequential database identifiers.
+External APIs must expose non-sequential identifiers. Business resources generally use prefixed public identifiers. A user may use its UUID directly. Sequential database identifiers must never be exposed.
 
 ### NFR-SEC-04 — Payment data boundary
 

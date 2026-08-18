@@ -31,7 +31,7 @@ Some PostgreSQL constraints—partial unique indexes, composite tenant foreign k
 
 ## Identifier Strategy
 
-Each externally addressable resource uses:
+Externally addressable business resources generally use:
 
 1. an internal UUID primary key for database relationships; and
 2. a unique, immutable, prefixed public identifier for API exposure.
@@ -40,7 +40,6 @@ Initial prefixes are:
 
 | Resource | Prefix |
 | --- | --- |
-| User | `usr_` |
 | Organization | `org_` |
 | API key metadata | `key_` |
 | Customer | `cus_` |
@@ -54,6 +53,8 @@ Initial prefixes are:
 | Webhook event | `evt_` |
 
 Join records, delivery attempts, audit entries, idempotency records, and outbox records need not expose their internal UUIDs. If an API later addresses one directly, a prefixed public identifier must be added deliberately.
+
+`app_user` is an exception. Its non-sequential UUID is both its primary key and its external identity, so Striply does not maintain a second user identifier.
 
 ## Tenant Ownership
 
@@ -75,7 +76,8 @@ This prevents a valid product identifier from one organization being combined wi
 #### `app_user`
 
 - Human authentication identity.
-- Email comparison is case-insensitive and unique after normalization.
+- Stores one normalized email value. Registration trims and lowercases the email before persistence.
+- The normalized `email` column is unique.
 - Password hashes are never returned or logged.
 - Organization access is granted only through active membership.
 
@@ -217,7 +219,7 @@ The implementation must include, at minimum:
 
 | Table | Constraint | Purpose |
 | --- | --- | --- |
-| `app_user` | Unique normalized email | Prevent duplicate login identities |
+| `app_user` | Unique normalized `email` | Prevent duplicate login identities |
 | `refresh_token_family` | `absolute_expires_at > created_at` | Prevent invalid login-session lifetime |
 | `refresh_token` | Unique `token_hash`; `expires_at > created_at` | Support safe token lookup and prevent invalid token lifetime |
 | `refresh_token` | Partial unique active token per `family_id` | Prevent multiple unconsumed descendants in one token family |
