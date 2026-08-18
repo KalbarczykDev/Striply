@@ -1,7 +1,14 @@
+buildscript {
+    dependencies {
+        classpath("org.flywaydb:flyway-database-postgresql:12.4.0")
+    }
+}
+
 plugins {
     java
     id("org.springframework.boot") version "4.1.0"
     id("io.spring.dependency-management") version "1.1.7"
+    id("org.flywaydb.flyway") version "12.4.0"
 }
 
 group = "dev.kalbarczyk"
@@ -19,6 +26,17 @@ repositories {
 }
 
 val mockitoAgent by configurations.creating
+
+flyway {
+    url = providers.environmentVariable("STRIPLY_DB_URL")
+        .getOrElse("jdbc:postgresql://localhost:5432/striply")
+    user = providers.environmentVariable("STRIPLY_DB_USERNAME")
+        .getOrElse("app_user")
+    password = providers.environmentVariable("STRIPLY_DB_PASSWORD")
+        .getOrElse("app_password")
+    locations = arrayOf("filesystem:src/main/resources/db/migration")
+    cleanDisabled = false
+}
 
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-security")
