@@ -40,6 +40,9 @@ Never process or store real payment-card data.
 - Test domain rules with unit tests.
 - Use Testcontainers with PostgreSQL for persistence, transactions, constraints, and concurrency.
 - Tests should verify Striply behavior, not framework behavior.
+- Add only meaningfully tests avoid trivial test and testing same behavior in multiple tests
+- Add tests for edge cases
+- Where possible use hardcoded values instead of real timestamps or randomly generated values to avoid flaky tests.
 
 ## Frontend
 
@@ -47,6 +50,10 @@ Never process or store real payment-card data.
 - Keep API calls in a dedicated client layer.
 - Include loading, empty, error, and permission-aware states.
 - Use accessible controls and validated forms.
+
+## User Preferences
+
+- Do not suggest replacing wildcard imports with explicit imports.
 
 ## Workflow
 
