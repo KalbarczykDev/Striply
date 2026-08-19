@@ -11,6 +11,7 @@ import dev.kalbarczyk.striply.identity.repository.AppUserRepository;
 import dev.kalbarczyk.striply.identity.repository.RefreshTokenFamilyRepository;
 import dev.kalbarczyk.striply.identity.repository.RefreshTokenRepository;
 import dev.kalbarczyk.striply.identity.security.RefreshTokenHasher;
+import lombok.RequiredArgsConstructor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -45,6 +46,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @SpringBootTest
 @TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
 @Import(FixedClockConfiguration.class)
+@RequiredArgsConstructor
 class RefreshTokenServiceImplTest {
 
     private static final UUID USER_ID =
@@ -73,25 +75,6 @@ class RefreshTokenServiceImplTest {
     private final RefreshTokenService refreshTokenService;
     private final AppUserRepository appUserRepository;
     private final FixedClockConfiguration.MutableClock testClock;
-
-    @Autowired
-    RefreshTokenServiceImplTest(
-            RefreshTokenFamilyRepository refreshTokenFamilyRepository,
-            RefreshTokenRepository refreshTokenRepository,
-            RefreshTokenHasher refreshTokenHasher,
-            JdbcTemplate jdbcTemplate,
-            RefreshTokenService refreshTokenService,
-            AppUserRepository appUserRepository,
-            FixedClockConfiguration.MutableClock testClock
-    ) {
-        this.refreshTokenFamilyRepository = refreshTokenFamilyRepository;
-        this.refreshTokenRepository = refreshTokenRepository;
-        this.refreshTokenHasher = refreshTokenHasher;
-        this.jdbcTemplate = jdbcTemplate;
-        this.refreshTokenService = refreshTokenService;
-        this.appUserRepository = appUserRepository;
-        this.testClock = testClock;
-    }
 
     @BeforeEach
     void setUp() {

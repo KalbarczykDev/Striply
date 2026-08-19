@@ -7,6 +7,7 @@ import dev.kalbarczyk.striply.identity.model.UserStatus;
 import dev.kalbarczyk.striply.identity.model.dto.RegisterUserCommand;
 import dev.kalbarczyk.striply.identity.model.dto.RegisteredUser;
 import dev.kalbarczyk.striply.identity.repository.AppUserRepository;
+import lombok.RequiredArgsConstructor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -28,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Testcontainers
 @SpringBootTest
 @TestConstructor(autowireMode = TestConstructor.AutowireMode.ALL)
+@RequiredArgsConstructor
 class AuthServiceImplTest {
 
     private static final String INPUT_EMAIL = "  Test@Example.COM ";
@@ -43,16 +45,6 @@ class AuthServiceImplTest {
     private final AuthService authService;
     private final AppUserRepository appUserRepository;
     private final PasswordEncoder passwordEncoder;
-
-    AuthServiceImplTest(
-            AuthService authService,
-            AppUserRepository appUserRepository,
-            PasswordEncoder passwordEncoder
-    ) {
-        this.authService = authService;
-        this.appUserRepository = appUserRepository;
-        this.passwordEncoder = passwordEncoder;
-    }
 
     @AfterEach
     void cleanDatabase() {

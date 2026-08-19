@@ -15,3 +15,7 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+
+striply:
+  security:
+    jwt-secret: ${SECRET_KEY:local-development-signing-key-change-me}

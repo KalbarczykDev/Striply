@@ -195,7 +195,7 @@ Learn password hashing, short-lived access tokens, refresh-token rotation, crede
 ### Constraints
 
 - Do not add social login, password reset, email verification, or external identity providers.
-- Token signing keys come from external configuration.
+- Local development may use the documented default signing key. Shared and deployed environments supply their signing key through external configuration.
 - Organization authorization is handled in VS-004, not inferred here.
 
 ### Acceptance Criteria

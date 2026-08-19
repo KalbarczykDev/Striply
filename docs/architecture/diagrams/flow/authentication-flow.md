@@ -19,7 +19,7 @@ This document defines login, access-token issuance, refresh-token rotation, repl
 - The React application keeps the access token in memory.
 - The refresh token is sent only as an `HttpOnly`, `Secure`, `SameSite=Strict` cookie outside local development.
 - PostgreSQL stores password hashes, refresh-token hashes, token-family state, and security events. It never stores raw passwords or raw refresh tokens.
-- Token signing keys and any token-hashing key material come from external configuration and are not stored in the repository.
+- Local development uses a checked-in JWT signing key. Shared and deployed environments provide their own key through external configuration.
 
 ## Login Decisions
 
@@ -55,8 +55,7 @@ JWT payloads are signed but not encrypted. Claims must therefore be treated as r
 
 VS-003 uses HMAC-SHA-256 (`HS256`) because the modular monolith is currently the only component issuing and validating access tokens.
 
-- The signing secret contains at least 32 cryptographically random bytes.
-- The configured secret is Base64 encoded for transport and decoded before use.
+- The signing secret contains at least 32 UTF-8 bytes. Keys used outside local development must be generated randomly.
 - Validation accepts exactly `HS256`; it does not select an algorithm based only on an untrusted token header.
 - Validation requires the expected issuer, audience, signature, and expiration.
 - Only a small documented clock-skew allowance may be accepted.
@@ -66,15 +65,15 @@ Asymmetric signing should be reconsidered if independently deployed services nee
 
 ## Signing-Key Configuration
 
-The application reads JWT settings from external configuration:
+The application reads the JWT signing key from this environment variable:
 
-| Environment variable        | Required value                                              |
-|-----------------------------|-------------------------------------------------------------|
-| `STRIPLY_JWT_SECRET_BASE64` | Base64-encoded secret containing at least 32 random bytes   |
-| `STRIPLY_JWT_ISSUER`        | Expected issuer; `striply` for the initial deployment       |
-| `STRIPLY_JWT_AUDIENCE`      | Expected audience; `striply-api` for the initial deployment |
+| Environment variable | Value                                           |
+|----------------------|-------------------------------------------------|
+| `SECRET_KEY`         | JWT signing secret containing at least 32 bytes |
 
-There is no default signing secret in the main application configuration. Application startup must fail with a useful diagnostic when the secret is absent, malformed, or too short. Tests provide a dedicated test-only key. Signing secrets and complete JWT values must never be committed, logged, placed in error responses, or exposed through metrics. Production deployment will eventually obtain the signing secret from AWS Secrets Manager or an equivalent secret store.
+When `SECRET_KEY` is absent, local development uses `local-development-signing-key-change-me`. This default is public and provides no protection if reused elsewhere. Shared, staging, and production environments must override it with a randomly generated secret. The application rejects configured keys shorter than 32 bytes.
+
+The issuer is `striply` and the audience is `striply-api`. Signing keys and complete JWT values must never be logged, placed in error responses, or exposed through metrics. Production deployment will eventually obtain its key from AWS Secrets Manager or an equivalent secret store.
 
 Key rotation is deferred. When implemented, tokens will carry a `kid` header and validation will temporarily support the active and retiring keys for a bounded overlap period.
 
