@@ -9,11 +9,7 @@ import dev.kalbarczyk.striply.identity.model.dto.RegisterUserCommand;
 import dev.kalbarczyk.striply.identity.model.dto.RegisteredUser;
 import dev.kalbarczyk.striply.identity.service.AuthService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.CookieValue;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -37,6 +33,23 @@ public class IdentityController {
             @RequestBody LoginUserCommand command
     ) {
         return sessionResponse(authService.login(command));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(
+            @CookieValue(
+                    value = REFRESH_TOKEN_COOKIE,
+                    required = false
+            ) String refreshToken
+    ) {
+
+        if (refreshToken != null && !refreshToken.isBlank()) {
+            authService.logout(refreshToken);
+        }
+
+        return ResponseEntity.noContent()
+                .header(HttpHeaders.SET_COOKIE, clearRefreshCookie().toString())
+                .build();
     }
 
     @PostMapping("/refresh")
@@ -69,5 +82,15 @@ public class IdentityController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, replacementCookie.toString())
                 .body(session.accessToken());
+    }
+
+    private ResponseCookie clearRefreshCookie() {
+        return ResponseCookie.from(REFRESH_TOKEN_COOKIE, "")
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Strict")
+                .path("/api/auth")
+                .maxAge(0)
+                .build();
     }
 }

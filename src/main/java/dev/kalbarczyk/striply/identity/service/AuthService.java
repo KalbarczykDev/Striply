@@ -9,4 +9,5 @@ public interface AuthService {
     RegisteredUser register(RegisterUserCommand command);
     IssuedSession login(LoginUserCommand command);
     IssuedSession refresh(String refreshToken);
+    void logout(String refreshToken);
 }

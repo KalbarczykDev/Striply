@@ -27,6 +27,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import(SecurityEncodingConfiguration.class)
 class SecurityConfigurationTest {
 
+    private static final String LOGOUT_PATH = "/api/auth/logout";
+
     @Autowired
     private MockMvc mockMvc;
 
@@ -56,6 +58,12 @@ class SecurityConfigurationTest {
     void shouldAllowLoginWithoutAuthenticationOrCsrfToken() throws Exception {
         mockMvc.perform(post("/api/auth/login"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void shouldAllowLogoutWithoutAuthenticationOrCsrfToken() throws Exception {
+        mockMvc.perform(post(LOGOUT_PATH))
+                .andExpect(status().isNoContent());
     }
 
     @Test

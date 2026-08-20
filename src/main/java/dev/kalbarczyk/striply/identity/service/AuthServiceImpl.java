@@ -92,6 +92,11 @@ public class AuthServiceImpl implements AuthService {
         return new IssuedSession(accessToken, rotatedToken.token());
     }
 
+    @Override
+    public void logout(String refreshToken) {
+        refreshTokenService.logout(refreshToken);
+    }
+
     private AppUserEntity save(AppUserEntity user) {
         try {
             return appUserRepository.saveAndFlush(user);

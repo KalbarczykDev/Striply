@@ -27,6 +27,7 @@ import java.util.UUID;
 
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verify;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -41,6 +42,7 @@ class IdentityControllerTest {
     private static final String LOGIN_PATH = "/api/auth/login";
     private static final String REGISTRATION_PATH = "/api/auth/register";
     private static final String REFRESH_PATH = "/api/auth/refresh";
+    private static final String LOGOUT_PATH = "/api/auth/logout";
     private static final String REFRESH_COOKIE_NAME = "refresh_token";
     private static final String REFRESH_COOKIE_PATH = "/api/auth";
     private static final String ORIGINAL_REFRESH_TOKEN =
@@ -90,6 +92,7 @@ class IdentityControllerTest {
             {"code": "INVALID_REFRESH_TOKEN"}
             """;
     private static final String SAME_SITE_STRICT = "SameSite=Strict";
+    private static final String EMPTY_STRING = "";
 
     @Autowired
     private MockMvc mockMvc;
@@ -260,6 +263,48 @@ class IdentityControllerTest {
                         JsonCompareMode.STRICT
                 ))
                 .andExpect(cookie().maxAge(REFRESH_COOKIE_NAME, 0));
+
+        verifyNoInteractions(authService);
+    }
+
+    @Test
+    void shouldLogoutPresentedTokenAndClearRefreshCookie() throws Exception {
+        mockMvc.perform(post(LOGOUT_PATH)
+                        .cookie(new jakarta.servlet.http.Cookie(
+                                REFRESH_COOKIE_NAME,
+                                ORIGINAL_REFRESH_TOKEN
+                        )))
+                .andExpect(status().isNoContent())
+                .andExpect(content().string(EMPTY_STRING))
+                .andExpect(cookie().value(
+                        REFRESH_COOKIE_NAME,
+                        EMPTY_STRING
+                ))
+                .andExpect(cookie().maxAge(REFRESH_COOKIE_NAME, 0))
+                .andExpect(cookie().httpOnly(REFRESH_COOKIE_NAME, true))
+                .andExpect(cookie().secure(REFRESH_COOKIE_NAME, true))
+                .andExpect(cookie().path(
+                        REFRESH_COOKIE_NAME,
+                        REFRESH_COOKIE_PATH
+                ));
+
+        verify(authService).logout(ORIGINAL_REFRESH_TOKEN);
+    }
+
+    @Test
+    void shouldClearRefreshCookieWithoutServiceCallWhenCookieIsMissing()
+            throws Exception {
+        mockMvc.perform(post(LOGOUT_PATH))
+                .andExpect(status().isNoContent())
+                .andExpect(cookie().value(
+                        REFRESH_COOKIE_NAME,
+                        EMPTY_STRING
+                ))
+                .andExpect(cookie().maxAge(REFRESH_COOKIE_NAME, 0))
+                .andExpect(cookie().path(
+                        REFRESH_COOKIE_NAME,
+                        REFRESH_COOKIE_PATH
+                ));
 
         verifyNoInteractions(authService);
     }
