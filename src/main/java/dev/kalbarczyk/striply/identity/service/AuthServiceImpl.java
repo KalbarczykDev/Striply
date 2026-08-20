@@ -1,10 +1,11 @@
 package dev.kalbarczyk.striply.identity.service;
 
+import dev.kalbarczyk.striply.identity.exception.InvalidCredentialsException;
 import dev.kalbarczyk.striply.identity.exception.InvalidRegistrationException;
 import dev.kalbarczyk.striply.identity.model.AppUserEntity;
 import dev.kalbarczyk.striply.identity.model.RegistrationFailureReason;
-import dev.kalbarczyk.striply.identity.model.dto.RegisterUserCommand;
-import dev.kalbarczyk.striply.identity.model.dto.RegisteredUser;
+import dev.kalbarczyk.striply.identity.model.UserStatus;
+import dev.kalbarczyk.striply.identity.model.dto.*;
 import dev.kalbarczyk.striply.identity.repository.AppUserRepository;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.exception.ConstraintViolationException;
@@ -32,13 +33,16 @@ public class AuthServiceImpl implements AuthService {
 
     private final AppUserRepository appUserRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AccessTokenService accessTokenService;
+    private final RefreshTokenService refreshTokenService;
 
     @Override
     @Transactional
     public RegisteredUser register(RegisterUserCommand command) {
         String password = command.password();
         validatePassword(password);
-        String email = validateAndNormalizeEmail(command.email());
+        String email = normalizeEmail(command.email());
+        validateEmail(email);
         String passwordHash = passwordEncoder.encode(password);
 
         AppUserEntity user = AppUserEntity.register(
@@ -52,6 +56,28 @@ public class AuthServiceImpl implements AuthService {
                 savedUser.getId(),
                 savedUser.getEmail()
         );
+    }
+
+    @Override
+    public IssuedSession login(LoginUserCommand command) {
+        String email = normalizeLoginEmail(command.email());
+
+        AppUserEntity user = appUserRepository.findByEmail(email)
+                .orElseThrow(InvalidCredentialsException::new);
+
+        if (command.password() == null
+                || user.getStatus() != UserStatus.ACTIVE
+                || !passwordEncoder.matches(
+                        command.password(),
+                        user.getPasswordHash()
+                )) {
+            throw new InvalidCredentialsException();
+        }
+
+        IssuedAccessToken accessToken = accessTokenService.issue(user.getId());
+        IssuedRefreshToken refreshToken = refreshTokenService.issueFor(user.getId());
+
+        return new IssuedSession(accessToken, refreshToken);
     }
 
     private AppUserEntity save(AppUserEntity user) {
@@ -98,12 +124,10 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
-    private String validateAndNormalizeEmail(String email) {
+    private void validateEmail(String email) {
         if (email == null) {
             throw new InvalidRegistrationException(RegistrationFailureReason.INVALID_EMAIL);
         }
-
-        email = email.strip().toLowerCase(Locale.ROOT);
 
         if (email.isEmpty()) {
             throw new InvalidRegistrationException(RegistrationFailureReason.INVALID_EMAIL);
@@ -116,7 +140,22 @@ public class AuthServiceImpl implements AuthService {
         if (!EMAIL_PATTERN.matcher(email).matches()) {
             throw new InvalidRegistrationException(RegistrationFailureReason.INVALID_EMAIL);
         }
+    }
 
-        return email;
+    private String normalizeEmail(String email) {
+        if (email == null) {
+            return null;
+        }
+
+        return email.strip().toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizeLoginEmail(String email) {
+        String normalizedEmail = normalizeEmail(email);
+        if (normalizedEmail == null) {
+            throw new InvalidCredentialsException();
+        }
+
+        return normalizedEmail;
     }
 }

@@ -16,7 +16,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Import;
@@ -24,7 +23,7 @@ import org.springframework.test.context.TestConstructor;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import dev.kalbarczyk.striply.configuration.FixedClockConfiguration;
+import dev.kalbarczyk.striply.testConfiguration.FixedClockConfiguration;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import java.time.Duration;
@@ -37,7 +36,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
-import static dev.kalbarczyk.striply.configuration.FixedClockConfiguration.NOW;
+import static dev.kalbarczyk.striply.testConfiguration.FixedClockConfiguration.NOW;
 import static dev.kalbarczyk.striply.identity.model.RefreshTokenRevocationReason.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

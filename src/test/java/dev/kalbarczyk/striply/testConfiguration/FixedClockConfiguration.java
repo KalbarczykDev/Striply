@@ -1,4 +1,4 @@
-package dev.kalbarczyk.striply.configuration;
+package dev.kalbarczyk.striply.testConfiguration;
 
 import lombok.AllArgsConstructor;
 import org.springframework.boot.test.context.TestConfiguration;
