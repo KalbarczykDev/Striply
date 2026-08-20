@@ -190,6 +190,19 @@ A valid refresh request consumes the presented token and creates exactly one rep
 
 The rotation transaction must ensure that two requests cannot both consume the same token. The persistence implementation must use a row lock or an equivalent conditional atomic update and verify that exactly one row was changed before inserting the replacement.
 
+## CSRF and Refresh-Cookie Scope
+
+Spring Security's CSRF protection is currently disabled globally. The refresh endpoint relies on the refresh cookie being `Secure`, `HttpOnly`, and `SameSite=Strict`, and on the browser application and API remaining same-site. Under those constraints, the browser does not attach the refresh cookie to cross-site requests, which is the current protection against cross-site refresh and logout requests. `HttpOnly` prevents JavaScript from reading the token but does not itself provide CSRF protection.
+
+This decision must be reviewed before any change that broadens when or where the cookie is sent, including:
+
+- changing `SameSite` to `Lax` or `None`;
+- broadening the cookie `Domain` or `Path`;
+- deploying the browser application and API in a cross-site configuration; or
+- adding another state-changing endpoint authenticated by cookies.
+
+If any of those conditions change, do not continue relying on global CSRF disablement. Re-enable Spring Security CSRF protection for cookie-authenticated operations and define an explicit browser-compatible token strategy before deployment. Origin validation may be added as defense in depth, but CORS configuration alone is not CSRF protection.
+
 ## Invalid and Expired Tokens
 
 Malformed, unknown, expired, or family-revoked refresh tokens return the same public `401 INVALID_REFRESH_TOKEN` response. The response clears the refresh cookie. Internal logs and audit data may record a bounded reason code but must not contain the raw token, its cookie value, or its stored hash.
@@ -216,7 +229,7 @@ This policy favors compromise containment over session availability. The browser
 
 ## Assumptions
 
-- Browser and API deployment remain same-site so `SameSite=Strict` is usable.
+- Browser and API deployment remain same-site so `SameSite=Strict` is usable and provides the current CSRF boundary for refresh-token requests.
 - HTTPS is mandatory outside local development.
 - Access tokens are signed and independently validated by the backend.
 - Refresh tokens contain enough cryptographic entropy to resist offline guessing.
@@ -227,4 +240,4 @@ This policy favors compromise containment over session availability. The browser
 - Rate limiting and brute-force enforcement are required but may be implemented in a later ticket; the risk must remain documented until then.
 - Email verification, password reset, session-management UI, and "log out everywhere" are deferred.
 - A lost response after a successful rotation can force another login under the strict replay policy.
-- Cookie behavior for cross-site frontend deployment would require revisiting `SameSite` and CSRF protection.
+- Any broader refresh-cookie scope or cross-site frontend deployment requires revisiting `SameSite` and the global CSRF disablement before deployment.

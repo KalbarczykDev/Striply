@@ -5,6 +5,7 @@ import dev.kalbarczyk.striply.identity.exception.UserNotEligibleForTokenExceptio
 import dev.kalbarczyk.striply.identity.exception.UserNotFoundException;
 import dev.kalbarczyk.striply.identity.model.*;
 import dev.kalbarczyk.striply.identity.model.dto.IssuedRefreshToken;
+import dev.kalbarczyk.striply.identity.model.dto.RotatedRefreshToken;
 import dev.kalbarczyk.striply.identity.repository.AppUserRepository;
 import dev.kalbarczyk.striply.identity.repository.RefreshTokenFamilyRepository;
 import dev.kalbarczyk.striply.identity.repository.RefreshTokenRepository;
@@ -72,7 +73,7 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
 
     @Override
     @Transactional(noRollbackFor = InvalidRefreshTokenException.class)
-    public IssuedRefreshToken rotate(String rawToken) {
+    public RotatedRefreshToken rotate(String rawToken) {
 
         byte[] presentedTokenHash = refreshTokenHasher.hash(rawToken);
 
@@ -157,9 +158,12 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
         refreshTokenRepository.save(replacementToken);
 
 
-        return new IssuedRefreshToken(
-                replacementRawToken,
-                replacementExpiry
+        return new RotatedRefreshToken(
+                family.getUser().getId(),
+                new IssuedRefreshToken(
+                        replacementRawToken,
+                        replacementExpiry
+                )
         );
     }
 

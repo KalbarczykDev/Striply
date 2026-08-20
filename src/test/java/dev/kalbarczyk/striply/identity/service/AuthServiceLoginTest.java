@@ -7,6 +7,7 @@ import dev.kalbarczyk.striply.identity.model.dto.IssuedAccessToken;
 import dev.kalbarczyk.striply.identity.model.dto.IssuedRefreshToken;
 import dev.kalbarczyk.striply.identity.model.dto.IssuedSession;
 import dev.kalbarczyk.striply.identity.model.dto.LoginUserCommand;
+import dev.kalbarczyk.striply.identity.model.dto.RotatedRefreshToken;
 import dev.kalbarczyk.striply.identity.repository.AppUserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,6 +33,15 @@ class AuthServiceLoginTest {
             UUID.fromString("10000000-0000-0000-0000-000000000001");
     private static final String RAW_PASSWORD = "UnitTestPass_2026!";
     private static final String PASSWORD_HASH = "{bcrypt}password-hash";
+    private static final String ORIGINAL_REFRESH_TOKEN =
+            "original-refresh-token";
+    private static final String REPLACEMENT_REFRESH_TOKEN =
+            "replacement-refresh-token";
+    private static final String ACCESS_TOKEN = "access-token";
+    private static final Instant ACCESS_TOKEN_EXPIRY =
+            Instant.parse("2026-08-18T12:05:00Z");
+    private static final Instant REFRESH_TOKEN_EXPIRY =
+            Instant.parse("2026-08-25T12:00:00Z");
 
     @Mock
     private AppUserRepository appUserRepository;
@@ -106,5 +116,26 @@ class AuthServiceLoginTest {
 
         verify(accessTokenService, never()).issue(USER_ID);
         verify(refreshTokenService, never()).issueFor(USER_ID);
+    }
+
+    @Test
+    void shouldRotateRefreshTokenAndIssueAccessTokenForItsUser() {
+        IssuedRefreshToken refreshToken = new IssuedRefreshToken(
+                REPLACEMENT_REFRESH_TOKEN,
+                REFRESH_TOKEN_EXPIRY
+        );
+        IssuedAccessToken accessToken = new IssuedAccessToken(
+                ACCESS_TOKEN,
+                ACCESS_TOKEN_EXPIRY
+        );
+        when(refreshTokenService.rotate(ORIGINAL_REFRESH_TOKEN))
+                .thenReturn(new RotatedRefreshToken(USER_ID, refreshToken));
+        when(accessTokenService.issue(USER_ID)).thenReturn(accessToken);
+
+        IssuedSession session = authService.refresh(ORIGINAL_REFRESH_TOKEN);
+
+        assertThat(session).isEqualTo(
+                new IssuedSession(accessToken, refreshToken)
+        );
     }
 }

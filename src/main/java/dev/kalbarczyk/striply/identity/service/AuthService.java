@@ -8,4 +8,5 @@ import dev.kalbarczyk.striply.identity.model.dto.RegisteredUser;
 public interface AuthService {
     RegisteredUser register(RegisterUserCommand command);
     IssuedSession login(LoginUserCommand command);
+    IssuedSession refresh(String refreshToken);
 }

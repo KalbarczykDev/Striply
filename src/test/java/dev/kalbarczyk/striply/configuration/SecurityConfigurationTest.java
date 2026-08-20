@@ -1,5 +1,7 @@
 package dev.kalbarczyk.striply.configuration;
 
+import dev.kalbarczyk.striply.identity.controller.IdentityController;
+import dev.kalbarczyk.striply.identity.service.AuthService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -10,6 +12,7 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.security.oauth2.jwt.JwtValidationException;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.util.List;
 
@@ -20,7 +23,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(SecurityTestController.class)
+@WebMvcTest({SecurityTestController.class, IdentityController.class})
 @Import(SecurityEncodingConfiguration.class)
 class SecurityConfigurationTest {
 
@@ -32,6 +35,9 @@ class SecurityConfigurationTest {
 
     @Autowired
     private JwtEncoder jwtEncoder;
+
+    @MockitoBean
+    private AuthService authService;
 
     @Test
     void shouldRejectUnauthenticatedRequest() throws Exception {
@@ -49,7 +55,7 @@ class SecurityConfigurationTest {
     @Test
     void shouldAllowLoginWithoutAuthenticationOrCsrfToken() throws Exception {
         mockMvc.perform(post("/api/auth/login"))
-                .andExpect(status().isOk());
+                .andExpect(status().isBadRequest());
     }
 
     @Test

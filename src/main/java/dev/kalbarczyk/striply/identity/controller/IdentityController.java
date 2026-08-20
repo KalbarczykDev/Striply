@@ -1,6 +1,9 @@
 package dev.kalbarczyk.striply.identity.controller;
 
+import dev.kalbarczyk.striply.identity.exception.InvalidRefreshTokenException;
+import dev.kalbarczyk.striply.identity.model.RefreshTokenFailureReason;
 import dev.kalbarczyk.striply.identity.model.dto.IssuedSession;
+import dev.kalbarczyk.striply.identity.model.dto.IssuedAccessToken;
 import dev.kalbarczyk.striply.identity.model.dto.LoginUserCommand;
 import dev.kalbarczyk.striply.identity.model.dto.RegisterUserCommand;
 import dev.kalbarczyk.striply.identity.model.dto.RegisteredUser;
@@ -8,25 +11,63 @@ import dev.kalbarczyk.striply.identity.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
+import org.springframework.http.ResponseEntity;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/auth")
 @RequiredArgsConstructor
 public class IdentityController {
 
+    static final String REFRESH_TOKEN_COOKIE = "refresh_token";
+
     private final AuthService authService;
 
-    @PostMapping
+    @PostMapping("/register")
     public RegisteredUser register(@RequestBody RegisterUserCommand command) {
         return authService.register(command);
     }
 
     @PostMapping("/login")
-    public IssuedSession login(@RequestBody LoginUserCommand command) {
-        return authService.login(command);
+    public ResponseEntity<IssuedAccessToken> login(
+            @RequestBody LoginUserCommand command
+    ) {
+        return sessionResponse(authService.login(command));
     }
 
+    @PostMapping("/refresh")
+    public ResponseEntity<IssuedAccessToken> refresh(
+            @CookieValue(
+                    value = REFRESH_TOKEN_COOKIE,
+                    required = false
+            ) String refreshToken
+    ) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new InvalidRefreshTokenException(
+                    RefreshTokenFailureReason.MALFORMED
+            );
+        }
 
+        return sessionResponse(authService.refresh(refreshToken));
+    }
+
+    private ResponseEntity<IssuedAccessToken> sessionResponse(
+            IssuedSession session
+    ) {
+        ResponseCookie replacementCookie = ResponseCookie
+                .from(REFRESH_TOKEN_COOKIE, session.refreshToken().rawValue())
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("Strict")
+                .path("/api/auth")
+                .build();
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, replacementCookie.toString())
+                .body(session.accessToken());
+    }
 }

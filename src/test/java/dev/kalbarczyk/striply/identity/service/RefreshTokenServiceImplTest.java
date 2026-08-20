@@ -7,6 +7,7 @@ import dev.kalbarczyk.striply.identity.model.RefreshTokenFailureReason;
 import dev.kalbarczyk.striply.identity.model.RefreshTokenFamilyEntity;
 import dev.kalbarczyk.striply.identity.model.UserStatus;
 import dev.kalbarczyk.striply.identity.model.dto.IssuedRefreshToken;
+import dev.kalbarczyk.striply.identity.model.dto.RotatedRefreshToken;
 import dev.kalbarczyk.striply.identity.repository.AppUserRepository;
 import dev.kalbarczyk.striply.identity.repository.RefreshTokenFamilyRepository;
 import dev.kalbarczyk.striply.identity.repository.RefreshTokenRepository;
@@ -146,11 +147,13 @@ class RefreshTokenServiceImplTest {
                 .orElseThrow()
                 .getAbsoluteExpiresAt();
 
-        IssuedRefreshToken replacement =
+        RotatedRefreshToken rotation =
                 refreshTokenService.rotate(initial.issued().rawValue());
+        IssuedRefreshToken replacement = rotation.token();
 
         assertThat(refreshTokenFamilyRepository.findAll()).hasSize(1);
         assertThat(refreshTokenRepository.findAll()).hasSize(2);
+        assertThat(rotation.userId()).isEqualTo(USER_ID);
 
         RefreshTokenEntity consumedOriginal = refreshTokenRepository
                 .findByTokenHash(initial.hash())
@@ -381,7 +384,7 @@ class RefreshTokenServiceImplTest {
                 );
 
                 assertThat(results)
-                        .filteredOn(IssuedRefreshToken.class::isInstance)
+                        .filteredOn(RotatedRefreshToken.class::isInstance)
                         .hasSize(1);
                 assertThat(results)
                         .filteredOn(InvalidRefreshTokenException.class::isInstance)
@@ -429,7 +432,7 @@ class RefreshTokenServiceImplTest {
         TokenFixture original = issueTokenForActiveUser();
 
         IssuedRefreshToken replacement =
-                refreshTokenService.rotate(original.issued().rawValue());
+                refreshTokenService.rotate(original.issued().rawValue()).token();
         byte[] replacementHash =
                 refreshTokenHasher.hash(replacement.rawValue());
 

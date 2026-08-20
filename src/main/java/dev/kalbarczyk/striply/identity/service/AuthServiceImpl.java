@@ -1,6 +1,7 @@
 package dev.kalbarczyk.striply.identity.service;
 
 import dev.kalbarczyk.striply.identity.exception.InvalidCredentialsException;
+import dev.kalbarczyk.striply.identity.exception.InvalidRefreshTokenException;
 import dev.kalbarczyk.striply.identity.exception.InvalidRegistrationException;
 import dev.kalbarczyk.striply.identity.model.AppUserEntity;
 import dev.kalbarczyk.striply.identity.model.RegistrationFailureReason;
@@ -68,9 +69,9 @@ public class AuthServiceImpl implements AuthService {
         if (command.password() == null
                 || user.getStatus() != UserStatus.ACTIVE
                 || !passwordEncoder.matches(
-                        command.password(),
-                        user.getPasswordHash()
-                )) {
+                command.password(),
+                user.getPasswordHash()
+        )) {
             throw new InvalidCredentialsException();
         }
 
@@ -78,6 +79,17 @@ public class AuthServiceImpl implements AuthService {
         IssuedRefreshToken refreshToken = refreshTokenService.issueFor(user.getId());
 
         return new IssuedSession(accessToken, refreshToken);
+    }
+
+    @Override
+    @Transactional(noRollbackFor = InvalidRefreshTokenException.class)
+    public IssuedSession refresh(String refreshToken) {
+        RotatedRefreshToken rotatedToken =
+                refreshTokenService.rotate(refreshToken);
+        IssuedAccessToken accessToken =
+                accessTokenService.issue(rotatedToken.userId());
+
+        return new IssuedSession(accessToken, rotatedToken.token());
     }
 
     private AppUserEntity save(AppUserEntity user) {
